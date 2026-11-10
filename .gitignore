@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Biến môi trường: không commit secret thật (docs/07_Git_Workflow.md, mục 10)
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+out/
+.next/
+*.tsbuildinfo
+next-env.d.ts
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Bản sao lưu database
+*.sql.gz
+*.dump
+
+# Hệ điều hành
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp

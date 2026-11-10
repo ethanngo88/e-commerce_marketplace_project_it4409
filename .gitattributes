@@ -1,0 +1,19 @@
+# Mọi file văn bản dùng LF, trong repository lẫn trên máy (kể cả Windows).
+# Lý do: tránh diff nhiễu do CRLF, tránh lỗi format cuối dòng,
+# và tránh script shell hỏng khi chạy trong container Linux.
+* text=auto eol=lf
+
+# File batch của Windows bắt buộc dùng CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# File nhị phân: không chuyển đổi ký tự xuống dòng
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary

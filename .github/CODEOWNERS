@@ -1,0 +1,44 @@
+# CODEOWNERS: GitHub tự yêu cầu chủ sở hữu review khi Pull Request chạm vào
+# đường dẫn tương ứng. Bảng phân quyền gốc: docs/07_Git_Workflow.md, mục 5.
+#
+# FILE NÀY CHƯA CÓ HIỆU LỰC. Để kích hoạt (M1 làm một lần):
+#   1. Ở mỗi dòng quy tắc bên dưới, thay M1, M2, M3, M4 bằng username GitHub
+#      của thành viên tương ứng, có ký tự "@" đứng trước.
+#   2. Bỏ dấu "# " ở đầu các dòng quy tắc đó.
+#
+# Khi nhiều dòng cùng khớp một file, dòng nằm dưới cùng được áp dụng.
+
+# Mặc định cho mọi thứ chưa nêu bên dưới (docs, cấu hình gốc)
+# *                                           M1
+
+# Backend: Core
+# /apps/api/src/modules/auth/                 M3
+# /apps/api/src/modules/users/                M3
+# /apps/api/src/modules/sellers/              M3
+# /apps/api/src/modules/categories/           M3
+# /apps/api/src/modules/products/             M3
+
+# Backend: Commerce
+# /apps/api/src/modules/inventory/            M4
+# /apps/api/src/modules/cart/                 M4
+# /apps/api/src/modules/orders/               M4
+# /apps/api/src/modules/payments/             M4
+# /apps/api/src/modules/reviews/              M4
+
+# Backend: Platform và phần dùng chung
+# /apps/api/src/modules/notifications/        M1
+# /apps/api/src/modules/admin/                M1
+# /apps/api/src/common/                       M1
+# /apps/api/src/app.module.ts                 M1
+# /apps/api/prisma/                           M1
+# /apps/api/prisma/seed.ts                    M4
+# /apps/api/test/                             M4
+
+# Frontend
+# /apps/web/                                  M2
+# /apps/web/src/app/admin/                    M1
+
+# Kiểm thử và hạ tầng
+# /e2e/                                       M4
+# /docker-compose*.yml                        M1
+# /.github/                                   M1
