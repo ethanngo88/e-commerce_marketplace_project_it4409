@@ -12,10 +12,6 @@ describe('App (e2e)', () => {
   };
 
   beforeAll(async () => {
-    process.env.DATABASE_URL =
-      process.env.DATABASE_URL ??
-      'postgresql://postgres:postgres@localhost:5432/marketplace_test';
-
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -29,7 +25,9 @@ describe('App (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('GET /api/health should return 200 with standard envelope', async () => {

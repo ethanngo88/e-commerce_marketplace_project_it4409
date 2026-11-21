@@ -43,6 +43,9 @@ jobs:
         run: npm test
 
       - name: E2E tests
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/marketplace_test
         run: npm run test:e2e
 
       - name: Build
