@@ -2,10 +2,35 @@
 
 Mã nguồn của hai ứng dụng nằm trong thư mục này. Mỗi ứng dụng là một project npm độc lập, có `package.json`, `node_modules` và `package-lock.json` riêng.
 
-| Thư mục | Ứng dụng | Người khởi tạo | Task |
-|---------|----------|----------------|------|
-| `api/` | Backend NestJS | M3 | T-06 |
-| `web/` | Frontend Next.js | M2 | T-07 |
+| Thư mục | Ứng dụng | Người khởi tạo | Task | Trạng thái |
+|---------|----------|----------------|------|------------|
+| `api/` | Backend NestJS | M3 | T-06 | Đã khởi tạo (NestJS, Prisma 7, Swagger, `/api/health`) |
+| `web/` | Frontend Next.js | M2 | T-07 | Chưa khởi tạo (xem hướng dẫn bên dưới) |
+
+## Chạy nhanh Backend (`apps/api`)
+
+```bash
+# Từ thư mục gốc repo: bật PostgreSQL và Redis
+docker compose up -d postgres redis
+
+# Từ apps/api:
+cd apps/api
+cp .env.example .env          # điền JWT_ACCESS_SECRET và biến môi trường cần thiết
+npm install
+npx prisma migrate dev        # áp dụng migration (đủ 20 bảng + constraint + search index)
+npx prisma generate           # sinh Prisma Client
+npm run start:dev             # API: http://localhost:4000/api · Swagger: http://localhost:4000/api/docs
+```
+
+Các lệnh kiểm tra chất lượng trong `apps/api`:
+
+```bash
+npm run lint:check            # kiểm tra ESLint
+npm run typecheck             # kiểm tra kiểu TypeScript (tsc --noEmit)
+npm test                      # chạy unit test (Jest)
+npm run test:e2e              # chạy e2e test (Supertest)
+npm run build                 # build ra dist/main.js
+```
 
 Cây thư mục đích của hai ứng dụng ([docs/03_System_Architecture.md](../docs/03_System_Architecture.md), mục 5) đã được tạo sẵn. Git không lưu thư mục trống, nên mỗi thư mục lá chứa một file `.gitkeep` rỗng. Mã nguồn và file cấu hình chưa có: công cụ khởi tạo chính thức sẽ tạo ra chúng theo các bước dưới đây. Khi một thư mục đã có file thật, xóa file `.gitkeep` của thư mục đó.
 
