@@ -87,6 +87,7 @@ Mỗi ứng dụng có file mẫu riêng liệt kê đủ tên biến với giá
 | `SHIPPING_FEE_PER_SELLER_ORDER` | api | Phí vận chuyển cố định (VND) | `30000` |
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | api (seed) | Tài khoản Admin ban đầu | – |
 | `NEXT_PUBLIC_API_URL` | web | URL backend mà trình duyệt gọi | `http://localhost:4000/api` |
+| `API_INTERNAL_URL` | web | Tùy chọn. URL backend cho Server Components khi web chạy trong Docker; để trống thì dùng `NEXT_PUBLIC_API_URL` | `http://api:4000/api` |
 
 Tạo chuỗi ngẫu nhiên cho JWT secret:
 
