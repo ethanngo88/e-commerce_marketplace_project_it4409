@@ -72,7 +72,8 @@ Mỗi ứng dụng có file mẫu riêng liệt kê đủ tên biến với giá
 | `REDIS_URL` | api | Chuỗi kết nối Redis | `redis://localhost:6379` |
 | `API_PORT` | api | Cổng backend | `4000` |
 | `CORS_ORIGIN` | api | Origin frontend được phép | `http://localhost:3000` |
-| `JWT_ACCESS_SECRET` | api | Khóa ký access token | chuỗi ngẫu nhiên ≥ 32 ký tự |
+| `TRUST_PROXY_HOPS` | api | Số reverse proxy đứng trước backend, dùng để lấy IP thật của client cho rate limit. Để `0` khi không có proxy, nếu không client có thể giả IP | `0` |
+| `JWT_ACCESS_SECRET` | api | Khóa ký access token; bắt buộc khi `NODE_ENV=production` | chuỗi ngẫu nhiên ≥ 32 ký tự |
 | `JWT_ACCESS_EXPIRES_IN` | api | Thời hạn access token | `15m` |
 | `REFRESH_TOKEN_EXPIRES_DAYS` | api | Thời hạn refresh token | `7` |
 | `BCRYPT_ROUNDS` | api | Cost của bcrypt | `10` |
@@ -140,6 +141,8 @@ Chạy toàn bộ bằng Docker (dùng để kiểm tra tích hợp và E2E):
 docker compose up --build
 ```
 
+Container `api` chạy với `NODE_ENV=production`, nên phải có file `apps/api/.env` với `JWT_ACCESS_SECRET` hợp lệ (tạo từ `.env.example` như bước 3 ở trên); thiếu biến này thì container dừng ngay khi khởi động.
+
 **Thử thanh toán VNPay ở local.** IPN là lời gọi từ máy chủ VNPay tới backend nên `localhost` không nhận được. Có hai cách: dùng công cụ tunnel (ví dụ ngrok hoặc Cloudflare Tunnel) để có URL công khai tạm thời và khai báo URL đó làm IPN URL trong trang quản trị VNPay sandbox; hoặc kiểm thử luồng IPN bằng integration test và chỉ thử VNPay thật trên môi trường đã triển khai.
 
 ## 5. Làm việc với database
@@ -182,6 +185,7 @@ Các lệnh chạy trong thư mục `apps/api`.
 | Mật khẩu PostgreSQL | `postgres` | Mật khẩu mạnh; không mở cổng 5432 ra Internet |
 | Cookie refresh token | `secure=false` | `secure=true` |
 | `CORS_ORIGIN` | `http://localhost:3000` | Domain thật |
+| `TRUST_PROXY_HOPS` | `0` | `1` (backend đứng sau Caddy) |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:4000/api` | `https://<domain>/api`; phải đặt trước khi build frontend |
 | Swagger | Bật | Tắt hoặc đặt sau xác thực |
 | Log | Dễ đọc | JSON |
@@ -280,6 +284,7 @@ gunzip -c backup_2026-12-20.sql.gz | \
 | Hiện tượng | Nguyên nhân thường gặp | Cách xử lý |
 |------------|------------------------|------------|
 | `P1001: Can't reach database server` | Container PostgreSQL chưa chạy hoặc `DATABASE_URL` sai | `docker compose ps`; trong Docker dùng host `postgres`, ngoài Docker dùng `localhost` |
+| Container `api` dừng ngay, log báo `Invalid environment configuration: JWT_ACCESS_SECRET` | Container chạy với `NODE_ENV=production` nên bắt buộc có secret, nhưng chưa có `apps/api/.env` | `cp apps/api/.env.example apps/api/.env` rồi điền secret (mục 3) |
 | Lỗi kiểu dữ liệu Prisma sau khi pull | Chưa sinh lại client hoặc chưa chạy migration | `npx prisma migrate dev`, rồi `npx prisma generate` |
 | Lệnh `prisma` báo không có `migrate` hay `generate` | Đã cài nhầm Prisma 8 qua `npm install prisma@latest` | Trả `prisma` và `@prisma/client` trong `package.json` về bản 7, chạy lại `npm install` |
 | Jest báo `ERR_REQUIRE_ASYNC_MODULE` | Node.js thấp hơn 24.9 | Nâng Node.js lên 24.x mới nhất hoặc 26.x |
