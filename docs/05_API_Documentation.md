@@ -86,9 +86,11 @@ Tham số phân trang chung: `page` (mặc định 1), `limit` (mặc định 20
 | 403 | Đã đăng nhập nhưng không có quyền |
 | 404 | Không tìm thấy tài nguyên, hoặc tài nguyên không thuộc về người gọi |
 | 409 | Xung đột với trạng thái hiện tại (trùng, hết hàng, chuyển trạng thái sai) |
+| 413 | Body gửi lên vượt giới hạn kích thước |
 | 422 | Không dùng; lỗi validate trả 400 |
 | 429 | Vượt rate limit |
 | 500 | Lỗi không lường trước |
+| 503 | Hệ thống tạm thời không phục vụ được, ví dụ mất kết nối database |
 
 Lỗi chung áp dụng cho mọi endpoint, không lặp lại trong các bảng bên dưới:
 
@@ -98,8 +100,15 @@ Lỗi chung áp dụng cho mọi endpoint, không lặp lại trong các bảng 
 | 401 | `UNAUTHORIZED` | Endpoint cần đăng nhập nhưng thiếu token hoặc token không hợp lệ |
 | 403 | `FORBIDDEN` | Sai role |
 | 403 | `SELLER_NOT_APPROVED` | Gọi `/api/seller/*` khi seller chưa APPROVED |
+| 404 | `NOT_FOUND` | Đường dẫn không tồn tại. Tài nguyên cụ thể dùng mã riêng của module, ví dụ `PRODUCT_NOT_FOUND` |
+| 409 | `CONFLICT` | Xung đột chung, khi module chưa có mã riêng |
+| 413 | `PAYLOAD_TOO_LARGE` | Body vượt giới hạn kích thước (JSON tối đa 100 kB) |
+| 4xx khác | `BAD_REQUEST` | Các lỗi phía client còn lại, ví dụ sai `Content-Type` |
 | 429 | `TOO_MANY_REQUESTS` | Vượt rate limit |
 | 500 | `INTERNAL_ERROR` | Lỗi server |
+| 503 | `SERVICE_UNAVAILABLE` | Mất kết nối database (`GET /api/health`) |
+
+Với các lỗi chung trên, `message` là câu tiếng Việt cố định do exception filter đặt; message gốc của exception có sẵn trong NestJS (thường bằng tiếng Anh) không được trả ra. Lỗi nghiệp vụ ném bằng `AppException` với mã ở mục 15 để giữ message riêng. Lỗi 5xx luôn trả message chung, chi tiết chỉ ghi vào log.
 
 Khi tài nguyên tồn tại nhưng thuộc về người khác, API trả **404** thay vì 403 để không tiết lộ sự tồn tại của nó.
 
@@ -107,7 +116,9 @@ Khi tài nguyên tồn tại nhưng thuộc về người khác, API trả **404
 
 | Method | URL | Mục đích | Auth | Response |
 |--------|-----|----------|------|----------|
-| GET | `/api/health` | Kiểm tra server và kết nối DB | Public | 200 `{ status: "ok", db: "up" }` |
+| GET | `/api/health` | Kiểm tra server và kết nối DB | Public | 200 `{ status: "ok", db: "up" }`; 503 `SERVICE_UNAVAILABLE` kèm `details: { db: "down" }` khi không kết nối được database |
+
+Endpoint này không bị rate limit. Healthcheck của Docker và dịch vụ uptime chỉ đọc mã HTTP, nên khi database lỗi phải trả 503 chứ không trả 200.
 
 ## 3. Authentication
 
@@ -517,7 +528,7 @@ Gỡ cấm đưa sản phẩm về HIDDEN để Seller tự bật lại.
 
 | Module | Mã lỗi |
 |--------|--------|
-| Chung | `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `TOO_MANY_REQUESTS`, `INTERNAL_ERROR` |
+| Chung | `VALIDATION_ERROR`, `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `PAYLOAD_TOO_LARGE`, `TOO_MANY_REQUESTS`, `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE` |
 | Auth | `EMAIL_ALREADY_EXISTS`, `INVALID_CREDENTIALS`, `ACCOUNT_BANNED`, `INVALID_REFRESH_TOKEN` |
 | User | `USER_NOT_FOUND`, `WRONG_PASSWORD`, `ADDRESS_NOT_FOUND`, `ADDRESS_LIMIT_REACHED`, `CANNOT_BAN_SELF` |
 | Seller | `SELLER_NOT_FOUND`, `SELLER_ALREADY_REGISTERED`, `SELLER_NOT_APPROVED`, `INVALID_SELLER_STATUS`, `STORE_NOT_FOUND` |

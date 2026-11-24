@@ -99,6 +99,15 @@ flowchart LR
 
 Với quy mô này, service gọi Prisma trực tiếp, không thêm tầng repository. Thêm repository chỉ làm tăng số file mà nhóm chưa cần.
 
+Thành phần dùng chung trong `apps/api/src`, mọi module dùng theo cùng một cách:
+
+| Thành phần | Dùng khi |
+|------------|----------|
+| `AppException` và `ErrorCode` (`common/errors/error-codes.ts`) | Ném lỗi nghiệp vụ, với mã có trong doc 05 mục 15 và message tiếng Việt. Exception có sẵn của NestJS (`NotFoundException`…) chỉ nhận message chung theo mã HTTP |
+| `Paginated.of(data, page, limit, total)` (`common/pagination/paginated.ts`) | Service trả danh sách có phân trang; `ResponseInterceptor` chuyển thành `{ success, data, meta }` |
+| `@RawResponse()` (`common/decorators/raw-response.decorator.ts`) | Endpoint phải trả định dạng do bên ngoài quy định, như IPN của VNPay. Lỗi vẫn đi qua exception filter, nên handler loại này tự bắt lỗi và trả mã lỗi theo định dạng của bên ngoài |
+| `configureApp(app)` (`setup-app.ts`) | Cấu hình HTTP dùng chung: prefix `/api`, helmet, cookie, CORS, ValidationPipe, trust proxy. `main.ts` và mọi test tạo app đều gọi hàm này |
+
 ## 4. Quy tắc phụ thuộc giữa các module
 
 1. **Mỗi module chỉ đọc/ghi các bảng của mình.** Cần dữ liệu của module khác thì gọi service mà module đó export. Ví dụ: `OrdersService` gọi `InventoryService.decrease()`, không tự `prisma.inventory.update()`.

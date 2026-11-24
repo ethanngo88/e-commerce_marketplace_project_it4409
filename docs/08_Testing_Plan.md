@@ -72,7 +72,7 @@ describe('InventoryService.decrease', () => {
 
 ## 4. Integration test
 
-Đặt tại `apps/api/test/`. Chạy ứng dụng NestJS thật với database PostgreSQL riêng cho test (`marketplace_test`), gọi API bằng Supertest. Trước mỗi file test: xóa dữ liệu và seed dữ liệu tối thiểu qua các hàm factory (`createUser`, `createSellerWithStore`, `createProduct`).
+Đặt tại `apps/api/test/`. Chạy ứng dụng NestJS thật với database PostgreSQL riêng cho test (`marketplace_test`), gọi API bằng Supertest. Tạo app bằng `createNestApplication()` rồi gọi `configureApp(app)` trong `src/setup-app.ts`, để test chạy đúng cấu hình như server thật (xem `test/app.e2e-spec.ts`). Trước mỗi file test: xóa dữ liệu và seed dữ liệu tối thiểu qua các hàm factory (`createUser`, `createSellerWithStore`, `createProduct`).
 
 Cổng thanh toán được thay bằng provider giả; riêng việc kiểm tra chữ ký VNPay được test bằng dữ liệu ký sẵn với secret test.
 

@@ -2,10 +2,59 @@
 
 Mã nguồn của hai ứng dụng nằm trong thư mục này. Mỗi ứng dụng là một project npm độc lập, có `package.json`, `node_modules` và `package-lock.json` riêng.
 
-| Thư mục | Ứng dụng | Người khởi tạo | Task |
-|---------|----------|----------------|------|
-| `api/` | Backend NestJS | M3 | T-06 |
-| `web/` | Frontend Next.js | M2 | T-07 |
+| Thư mục | Ứng dụng | Người khởi tạo | Task | Trạng thái |
+|---------|----------|----------------|------|------------|
+| `api/` | Backend NestJS | M3 | T-06 | Đã khởi tạo (NestJS, Prisma 7, Swagger, `/api/health`) |
+| `web/` | Frontend Next.js | M2 | T-07 | Chưa khởi tạo (xem hướng dẫn bên dưới) |
+
+## Chạy nhanh Backend (`apps/api`)
+
+```bash
+# Từ thư mục gốc repo: bật PostgreSQL và Redis
+docker compose up -d postgres redis
+
+# Từ apps/api:
+cd apps/api
+cp .env.example .env          # điền JWT_ACCESS_SECRET và biến môi trường cần thiết
+npm install
+npx prisma migrate dev        # áp dụng migration (đủ 20 bảng + constraint + search index)
+npx prisma generate           # sinh Prisma Client
+npx prisma db seed            # dữ liệu mẫu (xem mục "Dữ liệu mẫu" bên dưới)
+npm run start:dev             # API: http://localhost:4000/api · Swagger: http://localhost:4000/api/docs
+```
+
+Các lệnh kiểm tra chất lượng trong `apps/api`:
+
+```bash
+npm run lint:check            # kiểm tra ESLint
+npm run typecheck             # kiểm tra kiểu TypeScript (tsc --noEmit)
+npm test                      # chạy unit test (Jest)
+npm run test:e2e              # chạy e2e test (Supertest)
+npm run build                 # build ra dist/main.js
+```
+
+## Dữ liệu mẫu (T-09)
+
+`npx prisma db seed` chạy [api/prisma/seed.ts](api/prisma/seed.ts) với dữ liệu trong [api/prisma/seed-data.ts](api/prisma/seed-data.ts). File `.env` cần có `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` và `SEED_USER_PASSWORD` (xem `.env.example`).
+
+| Tài khoản | Role | Mật khẩu | Ghi chú |
+|-----------|------|----------|---------|
+| `admin@example.com` | ADMIN | `SEED_ADMIN_PASSWORD` | |
+| `seller1@example.com` | CUSTOMER, SELLER | `SEED_USER_PASSWORD` | Store `an-fashion`: thời trang |
+| `seller2@example.com` | CUSTOMER, SELLER | `SEED_USER_PASSWORD` | Store `binh-minh-tech`: điện thoại, gia dụng, sách |
+| `customer@example.com` | CUSTOMER | `SEED_USER_PASSWORD` | Có một địa chỉ mặc định |
+
+Các trường hợp có sẵn để thử:
+
+- 19 danh mục, 2 cấp. Danh mục `dong-ho-nam` đang tắt.
+- 36 sản phẩm: 34 ACTIVE, `ao-khoac-denim` là DRAFT, `cay-xanh-mini-de-ban` là HIDDEN.
+- Hết hàng ở mọi variant: `giay-tay-da-bo`, `tai-nghe-gaming-rgb`. Tồn kho thấp (3): `pin-sac-du-phong-10000mah`.
+- Variant `SML-BE-L` đã tắt và rẻ hơn các variant khác, nên `minPrice` của `ao-so-mi-lua-nu` vẫn là 279.000đ.
+- Tìm "ao thun" phải ra 3 sản phẩm "Áo thun..." (IT-18).
+- Ảnh là ảnh giữ chỗ của placehold.co, `publicId` có tiền tố `seed/` và không tồn tại trên Cloudinary.
+- `ratingAvg`, `ratingCount`, `soldCount` đều bằng 0, vì chưa có đơn hàng và review.
+
+Seed chỉ tạo bản ghi còn thiếu, không ghi đè dữ liệu đã có. Muốn đưa database về đúng dữ liệu mẫu: `npx prisma migrate reset`, rồi `npx prisma db seed`.
 
 Cây thư mục đích của hai ứng dụng ([docs/03_System_Architecture.md](../docs/03_System_Architecture.md), mục 5) đã được tạo sẵn. Git không lưu thư mục trống, nên mỗi thư mục lá chứa một file `.gitkeep` rỗng. Mã nguồn và file cấu hình chưa có: công cụ khởi tạo chính thức sẽ tạo ra chúng theo các bước dưới đây. Khi một thư mục đã có file thật, xóa file `.gitkeep` của thư mục đó.
 
