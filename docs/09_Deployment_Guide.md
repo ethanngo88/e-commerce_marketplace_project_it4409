@@ -86,7 +86,8 @@ Mỗi ứng dụng có file mẫu riêng liệt kê đủ tên biến với giá
 | `VNPAY_RETURN_URL` | api | Trang kết quả ở frontend | `http://localhost:3000/checkout/result` |
 | `PAYMENT_EXPIRES_MINUTES` | api | Hạn thanh toán online | `15` |
 | `SHIPPING_FEE_PER_SELLER_ORDER` | api | Phí vận chuyển cố định (VND) | `30000` |
-| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | api (seed) | Tài khoản Admin ban đầu | – |
+| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | api (seed) | Tài khoản Admin ban đầu. Mật khẩu 8–72 ký tự, có chữ và số | `admin@example.com` |
+| `SEED_USER_PASSWORD` | api (seed) | Mật khẩu chung của `seller1`, `seller2`, `customer@example.com`; chỉ dùng ở development và test, production không cần | – |
 | `NEXT_PUBLIC_API_URL` | web | URL backend mà trình duyệt gọi | `http://localhost:4000/api` |
 
 Tạo chuỗi ngẫu nhiên cho JWT secret:
@@ -155,7 +156,8 @@ Các lệnh chạy trong thư mục `apps/api`.
 | Áp dụng migration mới sau khi pull code | `npx prisma migrate dev` |
 | Sinh lại Prisma Client | `npx prisma generate` |
 | Xem dữ liệu bằng giao diện | `npx prisma studio` |
-| Xóa và tạo lại database development | `npx prisma migrate reset` |
+| Nạp dữ liệu mẫu (chạy lại nhiều lần không lỗi, không ghi đè dữ liệu đã có) | `npx prisma db seed` |
+| Xóa và tạo lại database development | `npx prisma migrate reset`, rồi `npx prisma db seed` |
 | Áp dụng migration ở production | `npx prisma migrate deploy` |
 
 - Dùng **Prisma 7** và giữ `prisma`, `@prisma/client` ở cùng một phiên bản. Không chạy `npm install prisma@latest`: thẻ `latest` trên npm hiện trỏ tới bản thử nghiệm Prisma 8, có bộ lệnh khác.
@@ -216,6 +218,8 @@ docker compose -f docker-compose.prod.yml exec api npx prisma db seed
 # 6. Kiểm tra
 curl https://<domain>/api/health
 ```
+
+Bước 5 **chưa chạy được**: lệnh seed dùng `tsx` (devDependency) và mã nguồn TypeScript, mà image production đã bỏ cả hai. Khi `NODE_ENV=production`, script seed chỉ tạo roles, Admin và danh mục. Cách chạy seed trên production được chốt trong T-34.
 
 Sau đó khai báo IPN URL `https://<domain>/api/payments/vnpay/ipn` trong trang quản trị VNPay sandbox.
 
