@@ -5,7 +5,7 @@ Mã nguồn của hai ứng dụng nằm trong thư mục này. Mỗi ứng dụ
 | Thư mục | Ứng dụng | Người khởi tạo | Task | Trạng thái |
 |---------|----------|----------------|------|------------|
 | `api/` | Backend NestJS | M3 | T-06 | Đã khởi tạo (NestJS, Prisma 7, Swagger, `/api/health`) |
-| `web/` | Frontend Next.js | M2 | T-07 | Chưa khởi tạo (xem hướng dẫn bên dưới) |
+| `web/` | Frontend Next.js | M2 | T-07 | Đã khởi tạo (Next.js 16, Tailwind 4, shadcn/ui, TanStack Query, API client) |
 
 ## Chạy nhanh Backend (`apps/api`)
 
@@ -95,20 +95,35 @@ npx @nestjs/cli@latest new api --package-manager npm --skip-git --no-observe
 
 - Phần còn lại của task (config, validation pipe, exception filter, Swagger, `GET /api/health`) làm theo tiêu chí ở [docs/01_Project_Overview.md](../docs/01_Project_Overview.md), mục 7.1, và định dạng response ở [docs/05_API_Documentation.md](../docs/05_API_Documentation.md), mục 1.
 
-## Frontend (M2, task T-07)
+## Frontend (`apps/web`, task T-07)
+
+Chạy (backend phải đang chạy ở cổng 4000 để trang chủ báo "API hoạt động"):
 
 ```bash
-cd apps
-rm -rf web             # PowerShell: Remove-Item -Recurse -Force web
-npx create-next-app@latest web --ts --tailwind --eslint --app --src-dir --import-alias "@/*" --use-npm --disable-git
-git restore web        # lấy lại các thư mục giữ chỗ trong web/src
-cd web
-npx shadcn@latest init
+cd apps/web
+cp .env.example .env.local    # PowerShell: Copy-Item .env.example .env.local
+npm install
+npm run dev                   # http://localhost:3000
 ```
 
-- create-next-app chỉ chạy khi thư mục đích chưa có hoặc đang trống; nếu không, nó dừng với thông báo `contains files that could conflict`. Vì vậy cần xóa tạm `web/`. Thư mục này chỉ chứa các file `.gitkeep`, và `git restore web` lấy lại chúng mà không đụng tới các file vừa sinh ra.
-- `--disable-git` có cùng lý do với `--skip-git` ở trên.
-- Các câu hỏi còn lại của hai công cụ có thể giữ giá trị mặc định.
+Các lệnh kiểm tra: `npm run lint`, `npm run typecheck`, `npm run build`.
+
+Project được tạo bằng hai lệnh sau, các tùy chọn khác giữ mặc định:
+
+```bash
+npx create-next-app@16.4.6 web --ts --tailwind --eslint --app --src-dir --import-alias "@/*" --use-npm --disable-git --no-agents-md
+npx shadcn@4.23.0 init -t next -b radix -p nova   # chạy trong apps/web
+```
+
+Những điều cần biết khi viết code frontend:
+
+- **Gọi API:** luôn qua [web/src/lib/api.ts](web/src/lib/api.ts), không gọi `fetch` trực tiếp. Hàm trả về `data`; lỗi được ném thành `ApiError` có `status`, `code`, `message` tiếng Việt và `details` (doc 05 mục 1.5). Danh sách phân trang dùng `api.getPage()`. Kiểu response chung nằm ở [web/src/types/api.ts](web/src/types/api.ts).
+- **Phiên đăng nhập (T-23):** sau khi đăng nhập gọi `setAccessToken(token)`; dùng `onSessionExpire()` để đăng xuất khi refresh thất bại. API client tự gọi `/auth/refresh` khi gặp 401 rồi thử lại một lần. Không lưu token vào `localStorage`.
+- **Server state:** dùng `useQuery`, `useMutation` của TanStack Query; provider ở [web/src/app/providers.tsx](web/src/app/providers.tsx).
+- **Component UI:** shadcn/ui bản Radix, thêm bằng `npx shadcn@latest add <tên>`; file sinh ra nằm ở `src/components/ui/`. Hàm `cn()` lấy từ gói `cn` của shadcn (thay cho `clsx` + `tailwind-merge`).
+- **Route:** khu mua sắm nằm trong `src/app/(shop)/` (dùng chung header, footer); `(auth)/`, `seller/`, `admin/` còn trống. Các link `/products`, `/cart`, `/login`, `/seller` trên header chưa có trang và đang trả 404.
+- **Cache Components:** `next.config.ts` bật `cacheComponents` (mặc định của Next.js 16.4). Server Component đọc dữ liệu không cache (ví dụ gọi API sản phẩm) phải nằm trong `<Suspense>`, nếu không `next build` báo lỗi. Đọc tài liệu Next.js về Cache Components trước khi làm T-24; bản đúng phiên bản đang dùng có sẵn trong `web/node_modules/next/dist/docs/01-app/02-guides/` (ví dụ `building.md`, `migrating-to-cache-components.md`).
+- **Biến môi trường:** `NEXT_PUBLIC_API_URL` được nhúng vào code lúc build; đổi giá trị thì phải build lại.
 
 ## Sau khi khởi tạo
 

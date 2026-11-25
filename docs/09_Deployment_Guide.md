@@ -89,6 +89,7 @@ Mỗi ứng dụng có file mẫu riêng liệt kê đủ tên biến với giá
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | api (seed) | Tài khoản Admin ban đầu. Mật khẩu 8–72 ký tự, có chữ và số | `admin@example.com` |
 | `SEED_USER_PASSWORD` | api (seed) | Mật khẩu chung của `seller1`, `seller2`, `customer@example.com`; chỉ dùng ở development và test, production không cần | – |
 | `NEXT_PUBLIC_API_URL` | web | URL backend mà trình duyệt gọi | `http://localhost:4000/api` |
+| `API_INTERNAL_URL` | web | Tùy chọn. URL backend cho Server Components khi web chạy trong Docker; để trống thì dùng `NEXT_PUBLIC_API_URL` | `http://api:4000/api` |
 
 Tạo chuỗi ngẫu nhiên cho JWT secret:
 
