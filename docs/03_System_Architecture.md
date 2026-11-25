@@ -107,6 +107,10 @@ Thành phần dùng chung trong `apps/api/src`, mọi module dùng theo cùng m�
 | `Paginated.of(data, page, limit, total)` (`common/pagination/paginated.ts`) | Service trả danh sách có phân trang; `ResponseInterceptor` chuyển thành `{ success, data, meta }` |
 | `@RawResponse()` (`common/decorators/raw-response.decorator.ts`) | Endpoint phải trả định dạng do bên ngoài quy định, như IPN của VNPay. Lỗi vẫn đi qua exception filter, nên handler loại này tự bắt lỗi và trả mã lỗi theo định dạng của bên ngoài |
 | `configureApp(app)` (`setup-app.ts`) | Cấu hình HTTP dùng chung: prefix `/api`, helmet, cookie, CORS, ValidationPipe, trust proxy. `main.ts` và mọi test tạo app đều gọi hàm này |
+| `JwtAuthGuard`, `RolesGuard` (`common/guards/`) | Đăng ký toàn cục trong `AppModule`, chạy sau rate limit. Mọi route mặc định cần access token; thiếu hoặc sai token trả 401, sai role trả 403 |
+| `@Public()` (`common/decorators/public.decorator.ts`) | Route không cần đăng nhập, ví dụ danh sách sản phẩm, health check |
+| `@Roles(Role.ADMIN)` (`common/decorators/roles.decorator.ts`) | Route chỉ cho các role đã nêu. Kiểm tra seller APPROVED (`SELLER_NOT_APPROVED`) không nằm ở đây mà do module Seller (T-12) làm |
+| `@CurrentUser()` (`common/decorators/current-user.decorator.ts`) | Lấy `AuthUser { id, email, roles }` của người đang gọi trong controller; `@CurrentUser('id')` lấy riêng id |
 
 ## 4. Quy tắc phụ thuộc giữa các module
 

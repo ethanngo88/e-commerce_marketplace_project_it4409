@@ -1,12 +1,15 @@
 import { Controller, Get, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
+import { Public } from '../common/decorators/public.decorator';
 import { AppException, ErrorCode } from '../common/errors/error-codes';
 import { PrismaService } from '../prisma/prisma.service';
 
 const DB_DOWN_MESSAGE = 'Hệ thống tạm thời không kết nối được cơ sở dữ liệu';
 
-// Healthcheck của Docker và dịch vụ uptime gọi định kỳ, không tính vào rate limit.
+// Healthcheck của Docker và dịch vụ uptime gọi định kỳ: không cần đăng nhập,
+// không tính vào rate limit.
+@Public()
 @SkipThrottle()
 @ApiTags('Health')
 @Controller('health')

@@ -1,11 +1,16 @@
 import { Body, Controller, Get, Post, Req } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Type } from 'class-transformer';
 import { IsArray, IsInt, IsString, Min, ValidateNested } from 'class-validator';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { AuthUser, Role } from '../src/common/auth/auth-user';
+import { CurrentUser } from '../src/common/decorators/current-user.decorator';
+import { Public } from '../src/common/decorators/public.decorator';
+import { Roles } from '../src/common/decorators/roles.decorator';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { configureApp } from '../src/setup-app';
 
@@ -29,6 +34,7 @@ class ProductInput {
 }
 
 /** Controller chỉ có trong test, để kiểm tra pipeline dùng chung (validation, IP sau proxy). */
+@Public()
 @Controller('e2e-probe')
 class ProbeController {
   @Get('ip')
@@ -42,8 +48,24 @@ class ProbeController {
   }
 }
 
+/** Route cần đăng nhập, để kiểm tra JwtAuthGuard, RolesGuard và @CurrentUser(). */
+@Controller('e2e-guarded')
+class GuardedProbeController {
+  @Get('me')
+  me(@CurrentUser() user: AuthUser) {
+    return user;
+  }
+
+  @Roles(Role.ADMIN)
+  @Get('admin')
+  admin() {
+    return { ok: true };
+  }
+}
+
 const prismaMock = {
   checkConnection: jest.fn(),
+  user: { findUnique: jest.fn() },
 };
 
 /**
@@ -55,7 +77,7 @@ async function createApp(
 ): Promise<NestExpressApplication> {
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
-    controllers: [ProbeController],
+    controllers: [ProbeController, GuardedProbeController],
   })
     .overrideProvider(PrismaService)
     .useValue(prismaMock)
@@ -210,6 +232,164 @@ describe('App (e2e)', () => {
       .expect(200);
 
     expect(res.body.data.ip).not.toBe('203.0.113.7');
+  });
+});
+
+describe('Authentication and authorization (e2e)', () => {
+  let app: NestExpressApplication;
+  let jwt: JwtService;
+  const customer: AuthUser = {
+    id: '00000000-0000-4000-8000-000000000001',
+    email: 'customer@example.com',
+    roles: [Role.CUSTOMER],
+  };
+  const signFor = (user: AuthUser) =>
+    jwt.signAsync({ sub: user.id, email: user.email, roles: user.roles });
+
+  beforeAll(async () => {
+    app = await createApp();
+    jwt = app.get(JwtService);
+  });
+
+  afterAll(async () => {
+    if (app) {
+      await app.close();
+    }
+  });
+
+  beforeEach(() => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+  });
+
+  const unauthorized = {
+    success: false,
+    error: { code: 'UNAUTHORIZED', message: 'Bạn cần đăng nhập để tiếp tục' },
+  };
+
+  it('should return 401 UNAUTHORIZED when a protected route has no token', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/e2e-guarded/me')
+      .expect(401);
+
+    expect(res.body).toEqual(unauthorized);
+  });
+
+  it.each([
+    ['a malformed token', 'Bearer not-a-jwt'],
+    ['a non-Bearer scheme', 'Basic dXNlcjpwYXNz'],
+  ])('should return 401 for %s', async (_case, header) => {
+    await request(app.getHttpServer())
+      .get('/api/e2e-guarded/me')
+      .set('Authorization', header)
+      .expect(401);
+  });
+
+  it('should return 401 for a token signed with another secret', async () => {
+    const forged = await new JwtService({
+      secret: 'another-secret-that-is-at-least-32-chars',
+    }).signAsync({ sub: customer.id, email: customer.email, roles: ['ADMIN'] });
+
+    await request(app.getHttpServer())
+      .get('/api/e2e-guarded/me')
+      .set('Authorization', `Bearer ${forged}`)
+      .expect(401);
+  });
+
+  it('should return 401 for an expired token', async () => {
+    const expired = await new JwtService({
+      secret: process.env.JWT_ACCESS_SECRET,
+    }).signAsync({
+      sub: customer.id,
+      email: customer.email,
+      roles: customer.roles,
+      exp: Math.floor(Date.now() / 1000) - 60,
+    });
+
+    await request(app.getHttpServer())
+      .get('/api/e2e-guarded/me')
+      .set('Authorization', `Bearer ${expired}`)
+      .expect(401);
+  });
+
+  it('should expose the user from a valid token through @CurrentUser()', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/e2e-guarded/me')
+      .set('Authorization', `Bearer ${await signFor(customer)}`)
+      .expect(200);
+
+    expect(res.body).toEqual({ success: true, data: customer });
+  });
+
+  it('should return 403 FORBIDDEN when the role does not match', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/e2e-guarded/admin')
+      .set('Authorization', `Bearer ${await signFor(customer)}`)
+      .expect(403);
+
+    expect(res.body).toEqual({
+      success: false,
+      error: {
+        code: 'FORBIDDEN',
+        message: 'Bạn không có quyền thực hiện thao tác này',
+      },
+    });
+  });
+
+  it('should allow a route with @Roles(ADMIN) for an admin token', async () => {
+    const admin = { ...customer, roles: [Role.ADMIN] };
+
+    await request(app.getHttpServer())
+      .get('/api/e2e-guarded/admin')
+      .set('Authorization', `Bearer ${await signFor(admin)}`)
+      .expect(200);
+  });
+
+  it('should return Vietnamese validation messages for an invalid registration', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({ email: 'not-an-email', password: 'abcdefgh', fullName: 'A' })
+      .expect(400);
+
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(res.body.error.details).toEqual(
+      expect.arrayContaining([
+        { field: 'email', message: 'Email không hợp lệ' },
+        { field: 'password', message: 'Mật khẩu phải có ít nhất một chữ số' },
+        { field: 'fullName', message: 'Họ tên phải dài 2–100 ký tự' },
+      ]),
+    );
+  });
+
+  it('should reject refresh without a cookie and clear the cookie', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .expect(401);
+
+    expect(res.body.error.code).toBe('INVALID_REFRESH_TOKEN');
+    expect(String(res.headers['set-cookie'])).toMatch(
+      /refreshToken=;.*Path=\/api\/auth/,
+    );
+  });
+
+  it('should require login for logout and me', async () => {
+    await request(app.getHttpServer()).post('/api/auth/logout').expect(401);
+    await request(app.getHttpServer()).get('/api/auth/me').expect(401);
+  });
+
+  it('should rate limit login to 10 requests per minute per IP', async () => {
+    const attempt = () =>
+      request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email: 'nobody@example.com', password: 'wrongpass1' });
+
+    for (let i = 0; i < 10; i++) {
+      const res = await attempt();
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('INVALID_CREDENTIALS');
+    }
+    const blocked = await attempt();
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.error.code).toBe('TOO_MANY_REQUESTS');
   });
 });
 

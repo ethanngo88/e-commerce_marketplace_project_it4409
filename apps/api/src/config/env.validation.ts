@@ -5,10 +5,10 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   Max,
   Min,
   MinLength,
-  ValidateIf,
   validateSync,
 } from 'class-validator';
 
@@ -54,18 +54,15 @@ export class EnvironmentVariables {
   @IsOptional()
   REDIS_URL?: string;
 
-  // Bắt buộc ở production; ở môi trường khác chỉ kiểm tra khi có đặt giá trị.
-  // Không dùng @IsOptional() ở đây: nó bỏ qua kiểm tra khi giá trị trống, kể cả ở production.
-  @ValidateIf(
-    (env: EnvironmentVariables) =>
-      env.NODE_ENV === NodeEnv.Production ||
-      env.JWT_ACCESS_SECRET !== undefined,
-  )
+  // Bắt buộc ở mọi môi trường: đăng nhập (T-10) cần khóa để ký access token.
   @IsString()
   @MinLength(32)
-  JWT_ACCESS_SECRET?: string;
+  JWT_ACCESS_SECRET!: string;
 
-  @IsString()
+  // Số kèm đơn vị: s (giây), m (phút), h (giờ), d (ngày). Ví dụ 15m.
+  @Matches(/^\d+[smhd]$/, {
+    message: 'JWT_ACCESS_EXPIRES_IN phải có dạng số + đơn vị, ví dụ 15m',
+  })
   @IsOptional()
   JWT_ACCESS_EXPIRES_IN: string = '15m';
 

@@ -162,6 +162,14 @@ Set-Cookie: refreshToken=…; HttpOnly; Path=/api/auth; SameSite=Lax; Max-Age=60
 
 Validation: `email` đúng định dạng, tự chuyển chữ thường; `password` 8–72 ký tự, có ít nhất một chữ và một số; `fullName` 2–100 ký tự. Thông báo lỗi đăng nhập không phân biệt "sai email" và "sai mật khẩu".
 
+Các quy tắc khác:
+
+- **Mặc định cần đăng nhập.** Mọi endpoint của API đều cần access token, trừ endpoint ghi Auth là Public. Thiếu, sai hoặc hết hạn token trả 401 `UNAUTHORIZED`; frontend khi đó gọi `/api/auth/refresh` rồi thử lại.
+- **Rate limit:** `register` và `login` tối đa 10 request mỗi phút trên một IP, vượt thì trả 429 `TOO_MANY_REQUESTS`.
+- **Cookie `refreshToken`:** `HttpOnly`, `SameSite=Lax`, `Path=/api/auth`, `Secure` ở production, hết hạn sau `REFRESH_TOKEN_EXPIRES_DAYS` ngày. Frontend gọi API với `credentials: "include"` để trình duyệt gửi kèm cookie.
+- **Refresh token chỉ dùng được một lần.** Gửi lại một token đã bị thu hồi (đã dùng để refresh hoặc đã logout) bị coi là token bị lộ: mọi phiên của tài khoản đó bị thu hồi. Tài khoản BANNED cũng không refresh được. Mọi lần refresh thất bại trả 401 `INVALID_REFRESH_TOKEN` và xóa cookie.
+- **Role trong access token** là role tại lúc cấp token. Khi role thay đổi, ví dụ seller vừa được duyệt, frontend gọi refresh để nhận token có role mới. `GET /api/auth/me` luôn trả role hiện tại trong database.
+
 ## 4. User Management
 
 | Method | URL | Mục đích | Auth | Request body | Thành công | Lỗi riêng |

@@ -5,6 +5,7 @@ describe('validateEnv', () => {
   const baseEnv = {
     DATABASE_URL:
       'postgresql://postgres:postgres@localhost:5432/marketplace_dev',
+    JWT_ACCESS_SECRET: 'a'.repeat(48),
   };
 
   it('should coerce string numeric env vars from process.env into numbers', () => {
@@ -36,19 +37,19 @@ describe('validateEnv', () => {
     const result = validateEnv({
       ...baseEnv,
       REDIS_URL: '',
-      JWT_ACCESS_SECRET: '',
+      JWT_ACCESS_EXPIRES_IN: '',
     });
 
     expect(result.NODE_ENV).toBe(NodeEnv.Development);
     expect(result.API_PORT).toBe(4000);
     expect(result.CORS_ORIGIN).toBe('http://localhost:3000');
     expect(result.TRUST_PROXY_HOPS).toBe(0);
+    expect(result.JWT_ACCESS_EXPIRES_IN).toBe('15m');
     expect(result.REFRESH_TOKEN_EXPIRES_DAYS).toBe(7);
     expect(result.BCRYPT_ROUNDS).toBe(10);
     expect(result.PAYMENT_EXPIRES_MINUTES).toBe(15);
     expect(result.SHIPPING_FEE_PER_SELLER_ORDER).toBe(30000);
     expect(result.REDIS_URL).toBeUndefined();
-    expect(result.JWT_ACCESS_SECRET).toBeUndefined();
   });
 
   it('should apply defaults when numeric variables are empty or blank', () => {
@@ -98,31 +99,33 @@ describe('validateEnv', () => {
     ).toThrow('JWT_ACCESS_SECRET');
   });
 
-  it('should require JWT_ACCESS_SECRET in production', () => {
-    expect(() =>
-      validateEnv({
-        ...baseEnv,
-        NODE_ENV: 'production',
-      }),
-    ).toThrow('JWT_ACCESS_SECRET');
+  it.each(['development', 'test', 'production'])(
+    'should require JWT_ACCESS_SECRET when NODE_ENV is %s',
+    (nodeEnv) => {
+      const withoutSecret = { DATABASE_URL: baseEnv.DATABASE_URL };
 
-    expect(() =>
-      validateEnv({
-        ...baseEnv,
-        NODE_ENV: 'production',
-        JWT_ACCESS_SECRET: '',
-      }),
-    ).toThrow('JWT_ACCESS_SECRET');
-  });
+      expect(() =>
+        validateEnv({ ...withoutSecret, NODE_ENV: nodeEnv }),
+      ).toThrow('JWT_ACCESS_SECRET');
+      expect(() =>
+        validateEnv({ ...baseEnv, NODE_ENV: nodeEnv, JWT_ACCESS_SECRET: ' ' }),
+      ).toThrow('JWT_ACCESS_SECRET');
+    },
+  );
 
   it('should accept a production config that sets JWT_ACCESS_SECRET', () => {
-    const result = validateEnv({
-      ...baseEnv,
-      NODE_ENV: 'production',
-      JWT_ACCESS_SECRET: 'a'.repeat(48),
-    });
+    const result = validateEnv({ ...baseEnv, NODE_ENV: 'production' });
 
     expect(result.NODE_ENV).toBe(NodeEnv.Production);
     expect(result.JWT_ACCESS_SECRET).toBe('a'.repeat(48));
   });
+
+  it.each(['15', '15 m', '1w', 'abc'])(
+    'should throw when JWT_ACCESS_EXPIRES_IN is %p',
+    (value) => {
+      expect(() =>
+        validateEnv({ ...baseEnv, JWT_ACCESS_EXPIRES_IN: value }),
+      ).toThrow('JWT_ACCESS_EXPIRES_IN');
+    },
+  );
 });
