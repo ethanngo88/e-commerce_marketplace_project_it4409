@@ -1,7 +1,13 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
+import { AppException, ErrorCode } from '../common/errors/error-codes';
 import { PrismaService } from '../prisma/prisma.service';
 
+const DB_DOWN_MESSAGE = 'Hệ thống tạm thời không kết nối được cơ sở dữ liệu';
+
+// Healthcheck của Docker và dịch vụ uptime gọi định kỳ, không tính vào rate limit.
+@SkipThrottle()
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {
@@ -11,7 +17,7 @@ export class HealthController {
   @ApiOperation({ summary: 'Kiểm tra trạng thái server và kết nối database' })
   @ApiResponse({
     status: 200,
-    description: 'Server hoạt động bình thường',
+    description: 'Server và database hoạt động bình thường',
     schema: {
       example: {
         success: true,
@@ -19,11 +25,32 @@ export class HealthController {
       },
     },
   })
+  @ApiResponse({
+    status: 503,
+    description: 'Không kết nối được database',
+    schema: {
+      example: {
+        success: false,
+        error: {
+          code: ErrorCode.SERVICE_UNAVAILABLE,
+          message: DB_DOWN_MESSAGE,
+          details: { db: 'down' },
+        },
+      },
+    },
+  })
   async check() {
     const isDbUp = await this.prisma.checkConnection();
-    return {
-      status: 'ok',
-      db: isDbUp ? 'up' : 'down',
-    };
+    if (!isDbUp) {
+      // Healthcheck của Docker và UptimeRobot chỉ đọc mã HTTP, nên phải trả 503 thay vì 200.
+      throw new AppException(
+        ErrorCode.SERVICE_UNAVAILABLE,
+        DB_DOWN_MESSAGE,
+        HttpStatus.SERVICE_UNAVAILABLE,
+        { db: 'down' },
+      );
+    }
+
+    return { status: 'ok', db: 'up' };
   }
 }

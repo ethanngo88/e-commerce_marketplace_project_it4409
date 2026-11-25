@@ -1,4 +1,6 @@
+import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { AppException, ErrorCode } from '../common/errors/error-codes';
 import { PrismaService } from '../prisma/prisma.service';
 import { HealthController } from './health.controller';
 
@@ -27,11 +29,15 @@ describe('HealthController', () => {
     expect(result).toEqual({ status: 'ok', db: 'up' });
   });
 
-  it('should return status ok and db down when database is unreachable', async () => {
+  it('should throw 503 SERVICE_UNAVAILABLE when database is unreachable', async () => {
     prisma.checkConnection.mockResolvedValue(false);
 
-    const result = await controller.check();
+    const error = await controller.check().catch((e: unknown) => e);
 
-    expect(result).toEqual({ status: 'ok', db: 'down' });
+    expect(error).toBeInstanceOf(AppException);
+    const exception = error as AppException;
+    expect(exception.getStatus()).toBe(HttpStatus.SERVICE_UNAVAILABLE);
+    expect(exception.code).toBe(ErrorCode.SERVICE_UNAVAILABLE);
+    expect(exception.details).toEqual({ db: 'down' });
   });
 });

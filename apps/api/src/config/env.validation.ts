@@ -1,4 +1,4 @@
-import { plainToInstance, Transform, Type } from 'class-transformer';
+import { plainToInstance, Type } from 'class-transformer';
 import {
   IsEnum,
   IsInt,
@@ -8,6 +8,7 @@ import {
   Max,
   Min,
   MinLength,
+  ValidateIf,
   validateSync,
 } from 'class-validator';
 
@@ -17,16 +18,11 @@ export enum NodeEnv {
   Test = 'test',
 }
 
-const emptyStringToUndefined = ({ value }: { value: unknown }) =>
-  value === '' ? undefined : value;
-
 export class EnvironmentVariables {
-  @Transform(emptyStringToUndefined)
   @IsEnum(NodeEnv)
   @IsOptional()
   NODE_ENV: NodeEnv = NodeEnv.Development;
 
-  @Transform(emptyStringToUndefined)
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -34,53 +30,63 @@ export class EnvironmentVariables {
   @IsOptional()
   API_PORT: number = 4000;
 
-  @Transform(emptyStringToUndefined)
   @IsString()
   @IsOptional()
   CORS_ORIGIN: string = 'http://localhost:3000';
+
+  /**
+   * Số reverse proxy đứng trước API (production sau Caddy: 1). Express chỉ tin
+   * header X-Forwarded-For qua đúng số proxy này khi xác định IP của client,
+   * và rate limit dựa vào IP đó. Để 0 khi không có proxy, nếu không client có
+   * thể tự đặt header để giả IP.
+   */
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  TRUST_PROXY_HOPS: number = 0;
 
   @IsString()
   @IsNotEmpty()
   DATABASE_URL!: string;
 
-  @Transform(emptyStringToUndefined)
   @IsString()
   @IsOptional()
   REDIS_URL?: string;
 
-  @Transform(emptyStringToUndefined)
+  // Bắt buộc ở production; ở môi trường khác chỉ kiểm tra khi có đặt giá trị.
+  // Không dùng @IsOptional() ở đây: nó bỏ qua kiểm tra khi giá trị trống, kể cả ở production.
+  @ValidateIf(
+    (env: EnvironmentVariables) =>
+      env.NODE_ENV === NodeEnv.Production ||
+      env.JWT_ACCESS_SECRET !== undefined,
+  )
   @IsString()
   @MinLength(32)
-  @IsOptional()
   JWT_ACCESS_SECRET?: string;
 
-  @Transform(emptyStringToUndefined)
   @IsString()
   @IsOptional()
   JWT_ACCESS_EXPIRES_IN: string = '15m';
 
-  @Transform(emptyStringToUndefined)
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @IsOptional()
   REFRESH_TOKEN_EXPIRES_DAYS: number = 7;
 
-  @Transform(emptyStringToUndefined)
   @Type(() => Number)
   @IsInt()
   @Min(4)
   @IsOptional()
   BCRYPT_ROUNDS: number = 10;
 
-  @Transform(emptyStringToUndefined)
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @IsOptional()
   PAYMENT_EXPIRES_MINUTES: number = 15;
 
-  @Transform(emptyStringToUndefined)
   @Type(() => Number)
   @IsInt()
   @Min(0)
@@ -88,11 +94,30 @@ export class EnvironmentVariables {
   SHIPPING_FEE_PER_SELLER_ORDER: number = 30000;
 }
 
+/**
+ * Bỏ các biến để trống hoặc chỉ có khoảng trắng, để chúng nhận giá trị mặc định.
+ * Nếu giữ lại, `@Type(() => Number)` đổi '' thành 0 trước mọi bước kiểm tra,
+ * ví dụ `SHIPPING_FEE_PER_SELLER_ORDER=` sẽ thành phí ship 0đ.
+ */
+function withoutBlankValues(
+  config: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(config).filter(
+      ([, value]) => !(typeof value === 'string' && value.trim() === ''),
+    ),
+  );
+}
+
 export function validateEnv(config: Record<string, unknown>) {
-  const validatedConfig = plainToInstance(EnvironmentVariables, config, {
-    enableImplicitConversion: true,
-    exposeDefaultValues: true,
-  });
+  const validatedConfig = plainToInstance(
+    EnvironmentVariables,
+    withoutBlankValues(config),
+    {
+      enableImplicitConversion: true,
+      exposeDefaultValues: true,
+    },
+  );
 
   const errors = validateSync(validatedConfig, {
     skipMissingProperties: false,
