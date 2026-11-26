@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { Prisma } from '../../generated/prisma/client';
 import { AppException, ErrorCode, ErrorCodeType } from '../errors/error-codes';
 
 /**
@@ -72,6 +73,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
       };
     }
 
+    // Lỗi Prisma có mã xác định (doc 10 mục O1): lưới an toàn tránh trả 500 cho
+    // vi phạm unique / không tìm thấy / ràng buộc khóa ngoại nếu service chưa bắt riêng.
+    const prismaError = mapPrismaKnownError(exception);
+    if (prismaError) {
+      return prismaError;
+    }
+
     // Exception có sẵn của NestJS và thư viện, hoặc lỗi 4xx từ middleware của
     // Express (ví dụ body-parser báo 413 khi body quá lớn): dùng message mặc định
     // theo mã lỗi. Mọi lỗi khác là 500.
@@ -86,6 +94,35 @@ export class HttpExceptionFilter implements ExceptionFilter {
       code,
       message: DEFAULT_MESSAGES[code] ?? 'Đã xảy ra lỗi hệ thống',
     };
+  }
+}
+
+function mapPrismaKnownError(exception: unknown): ErrorBody | undefined {
+  if (!(exception instanceof Prisma.PrismaClientKnownRequestError)) {
+    return undefined;
+  }
+
+  switch (exception.code) {
+    case 'P2002':
+      return {
+        status: HttpStatus.CONFLICT,
+        code: ErrorCode.CONFLICT,
+        message: 'Dữ liệu bị trùng với bản ghi đã tồn tại',
+      };
+    case 'P2025':
+      return {
+        status: HttpStatus.NOT_FOUND,
+        code: ErrorCode.NOT_FOUND,
+        message: 'Không tìm thấy tài nguyên',
+      };
+    case 'P2003':
+      return {
+        status: HttpStatus.CONFLICT,
+        code: ErrorCode.CONFLICT,
+        message: 'Không thể thực hiện thao tác do dữ liệu đang được liên kết',
+      };
+    default:
+      return undefined;
   }
 }
 

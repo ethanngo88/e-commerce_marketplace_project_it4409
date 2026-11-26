@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
+import { Prisma } from '../../generated/prisma/client';
 import { AppException, ErrorCode } from '../errors/error-codes';
 import { HttpExceptionFilter } from './http-exception.filter';
 
@@ -156,6 +157,83 @@ describe('HttpExceptionFilter', () => {
 
   it('should hide stack trace and return 500 INTERNAL_ERROR for unexpected errors', () => {
     filter.catch(new Error('sensitive db error'), host);
+
+    expect(statusMock).toHaveBeenCalledWith(500);
+    expect(sentBody()).toEqual({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Đã xảy ra lỗi hệ thống',
+      },
+    });
+    expect(errorLog).toHaveBeenCalledTimes(1);
+  });
+
+  it('should map Prisma P2002 unique violation to 409 CONFLICT without 5xx error log', () => {
+    filter.catch(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+      host,
+    );
+
+    expect(statusMock).toHaveBeenCalledWith(409);
+    expect(sentBody()).toEqual({
+      success: false,
+      error: {
+        code: 'CONFLICT',
+        message: 'Dữ liệu bị trùng với bản ghi đã tồn tại',
+      },
+    });
+    expect(errorLog).not.toHaveBeenCalled();
+  });
+
+  it('should map Prisma P2025 record not found to 404 NOT_FOUND', () => {
+    filter.catch(
+      new Prisma.PrismaClientKnownRequestError('Record not found', {
+        code: 'P2025',
+        clientVersion: 'test',
+      }),
+      host,
+    );
+
+    expect(statusMock).toHaveBeenCalledWith(404);
+    expect(sentBody()).toEqual({
+      success: false,
+      error: {
+        code: 'NOT_FOUND',
+        message: 'Không tìm thấy tài nguyên',
+      },
+    });
+    expect(errorLog).not.toHaveBeenCalled();
+  });
+
+  it('should map Prisma P2003 foreign key violation to 409 CONFLICT', () => {
+    filter.catch(
+      new Prisma.PrismaClientKnownRequestError(
+        'Foreign key constraint failed',
+        {
+          code: 'P2003',
+          clientVersion: 'test',
+        },
+      ),
+      host,
+    );
+
+    expect(statusMock).toHaveBeenCalledWith(409);
+    expect(sentBody().error.code).toBe('CONFLICT');
+    expect(errorLog).not.toHaveBeenCalled();
+  });
+
+  it('should map unhandled Prisma known errors to 500 INTERNAL_ERROR and log them', () => {
+    filter.catch(
+      new Prisma.PrismaClientKnownRequestError('Raw query failed', {
+        code: 'P2010',
+        clientVersion: 'test',
+      }),
+      host,
+    );
 
     expect(statusMock).toHaveBeenCalledWith(500);
     expect(sentBody()).toEqual({
