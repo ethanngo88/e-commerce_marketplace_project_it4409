@@ -106,6 +106,10 @@ function withoutBlankValues(
   );
 }
 
+/** Chuỗi mẫu trong `.env.example`: không được dùng khi chạy production (doc 10 mục O2). */
+export const PLACEHOLDER_JWT_ACCESS_SECRET =
+  'replace-with-a-random-string-at-least-32-characters-long';
+
 export function validateEnv(config: Record<string, unknown>) {
   const validatedConfig = plainToInstance(
     EnvironmentVariables,
@@ -128,6 +132,15 @@ export function validateEnv(config: Record<string, unknown>) {
       )
       .join('; ');
     throw new Error(`Invalid environment configuration: ${details}`);
+  }
+
+  if (
+    validatedConfig.NODE_ENV === NodeEnv.Production &&
+    validatedConfig.JWT_ACCESS_SECRET === PLACEHOLDER_JWT_ACCESS_SECRET
+  ) {
+    throw new Error(
+      'Invalid environment configuration: JWT_ACCESS_SECRET: cannot use the example placeholder in production',
+    );
   }
 
   return validatedConfig;

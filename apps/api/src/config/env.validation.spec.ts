@@ -1,5 +1,9 @@
 import 'reflect-metadata';
-import { NodeEnv, validateEnv } from './env.validation';
+import {
+  NodeEnv,
+  PLACEHOLDER_JWT_ACCESS_SECRET,
+  validateEnv,
+} from './env.validation';
 
 describe('validateEnv', () => {
   const baseEnv = {
@@ -118,6 +122,26 @@ describe('validateEnv', () => {
 
     expect(result.NODE_ENV).toBe(NodeEnv.Production);
     expect(result.JWT_ACCESS_SECRET).toBe('a'.repeat(48));
+  });
+
+  it('should reject the example placeholder JWT_ACCESS_SECRET in production', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv,
+        NODE_ENV: 'production',
+        JWT_ACCESS_SECRET: PLACEHOLDER_JWT_ACCESS_SECRET,
+      }),
+    ).toThrow('JWT_ACCESS_SECRET');
+  });
+
+  it('should still allow the example placeholder JWT_ACCESS_SECRET in development', () => {
+    const result = validateEnv({
+      ...baseEnv,
+      NODE_ENV: 'development',
+      JWT_ACCESS_SECRET: PLACEHOLDER_JWT_ACCESS_SECRET,
+    });
+
+    expect(result.JWT_ACCESS_SECRET).toBe(PLACEHOLDER_JWT_ACCESS_SECRET);
   });
 
   it.each(['15', '15 m', '1w', 'abc'])(
