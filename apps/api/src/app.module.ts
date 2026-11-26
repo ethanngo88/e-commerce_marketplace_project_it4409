@@ -11,6 +11,7 @@ import { validateEnv } from './config/env.validation';
 import { HealthController } from './health/health.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { CategoriesModule } from './modules/categories/categories.module';
+import { ProductsModule } from './modules/products/products.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 
@@ -31,6 +32,7 @@ import { RedisModule } from './redis/redis.module';
     RedisModule,
     AuthModule,
     CategoriesModule,
+    ProductsModule,
   ],
   controllers: [HealthController],
   providers: [
