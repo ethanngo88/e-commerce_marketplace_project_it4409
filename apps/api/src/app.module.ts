@@ -12,8 +12,11 @@ import { HealthController } from './health/health.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ProductsModule } from './modules/products/products.module';
+import { SellersModule } from './modules/sellers/sellers.module';
+import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -30,7 +33,10 @@ import { RedisModule } from './redis/redis.module';
     ]),
     PrismaModule,
     RedisModule,
+    UploadModule,
     AuthModule,
+    UsersModule,
+    SellersModule,
     CategoriesModule,
     ProductsModule,
   ],

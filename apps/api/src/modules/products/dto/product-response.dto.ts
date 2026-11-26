@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ProductStatus } from '../../../generated/prisma/client';
 
 export class ProductStoreSummaryDto {
   @ApiProperty()
@@ -91,4 +92,43 @@ export class ProductDetailDto extends ProductSummaryDto {
 
   @ApiProperty({ type: () => [ProductVariantPublicDto] })
   variants!: ProductVariantPublicDto[];
+}
+
+export class SellerProductVariantDto extends ProductVariantPublicDto {
+  @ApiProperty()
+  isActive!: boolean;
+}
+
+export class SellerProductSummaryDto extends ProductSummaryDto {
+  @ApiProperty({ enum: ProductStatus })
+  status!: ProductStatus;
+
+  @ApiProperty()
+  createdAt!: Date;
+
+  @ApiProperty()
+  updatedAt!: Date;
+}
+
+export class SellerProductDetailDto extends ProductSummaryDto {
+  @ApiProperty({ enum: ProductStatus })
+  status!: ProductStatus;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  description!: string | null;
+
+  @ApiProperty({ type: () => ProductCategoryRefDto })
+  category!: ProductCategoryRefDto;
+
+  @ApiProperty({ type: () => [ProductImageDto] })
+  images!: ProductImageDto[];
+
+  @ApiProperty({ type: () => [SellerProductVariantDto] })
+  variants!: SellerProductVariantDto[];
+
+  @ApiProperty()
+  createdAt!: Date;
+
+  @ApiProperty()
+  updatedAt!: Date;
 }
