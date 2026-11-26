@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsEmail, IsString, Length, Matches, MaxLength } from 'class-validator';
+import { MaxUtf8Bytes } from '../../../common/validators/max-utf8-bytes.validator';
 
 /** Email luôn được lưu và so sánh ở dạng chữ thường (doc 04 mục 6.1). */
 export const normalizeEmail = ({ value }: { value: unknown }) =>
@@ -25,6 +26,7 @@ export class RegisterDto {
   })
   @IsString({ message: 'Mật khẩu không hợp lệ' })
   @Length(8, 72, { message: 'Mật khẩu phải dài 8–72 ký tự' })
+  @MaxUtf8Bytes(72, { message: 'Mật khẩu không được vượt quá 72 byte UTF-8' })
   @Matches(/[A-Za-z]/, { message: 'Mật khẩu phải có ít nhất một chữ cái' })
   @Matches(/\d/, { message: 'Mật khẩu phải có ít nhất một chữ số' })
   password!: string;

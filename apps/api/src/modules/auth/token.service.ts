@@ -137,4 +137,25 @@ export class TokenService {
       data: { revokedAt: new Date() },
     });
   }
+
+  /**
+   * Thu hồi mọi refresh token của user ngoại trừ phiên hiện tại (dùng khi đổi mật khẩu ở T-11).
+   * Nếu không có `currentToken`, thu hồi toàn bộ refresh token của user.
+   */
+  async revokeOtherForUser(
+    userId: string,
+    currentToken: string | undefined,
+    db: Prisma.TransactionClient = this.prisma,
+  ): Promise<void> {
+    await db.refreshToken.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+        ...(currentToken
+          ? { tokenHash: { not: hashRefreshToken(currentToken) } }
+          : {}),
+      },
+      data: { revokedAt: new Date() },
+    });
+  }
 }
