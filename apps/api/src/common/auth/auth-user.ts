@@ -29,6 +29,13 @@ export interface AuthUser {
   roles: Role[];
 }
 
+export interface SellerStoreContext {
+  sellerId: string;
+  storeId: string;
+  storeSlug: string;
+}
+
 export interface AuthenticatedRequest extends Request {
   user?: AuthUser;
+  sellerStore?: SellerStoreContext;
 }

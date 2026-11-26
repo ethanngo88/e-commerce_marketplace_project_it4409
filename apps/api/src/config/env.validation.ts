@@ -89,6 +89,18 @@ export class EnvironmentVariables {
   @Min(0)
   @IsOptional()
   SHIPPING_FEE_PER_SELLER_ORDER: number = 30000;
+
+  @IsString()
+  @IsOptional()
+  CLOUDINARY_CLOUD_NAME?: string;
+
+  @IsString()
+  @IsOptional()
+  CLOUDINARY_API_KEY?: string;
+
+  @IsString()
+  @IsOptional()
+  CLOUDINARY_API_SECRET?: string;
 }
 
 /**
