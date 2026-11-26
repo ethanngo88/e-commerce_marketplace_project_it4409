@@ -3,7 +3,7 @@
 - **Task:** T-10 (M3, P0), xem [01 – Project Overview](01_Project_Overview.md) mục 7.2.
 - **Nhánh:** `feature/T-10-auth-api`, commit `ee51dd1`, đã có trên GitHub.
 - **Thực hiện:** 25/11/2026, có dùng trợ lý AI (Claude), ghi nhận ở dòng `Co-Authored-By` của commit.
-- **Trạng thái:** đã sửa lỗi tương thích `@nestjs/jwt` với Jest CommonJS và hoàn tất kiểm chứng tự động (`lint:check`, `typecheck`, 86/86 unit test, 22/22 e2e test, `build` đều pass). Còn bước chạy thử thủ công với PostgreSQL thật khi bật Docker Desktop (mục 8).
+- **Trạng thái:** đã sửa lỗi tương thích `@nestjs/jwt` với Jest CommonJS, chặn placeholder secret ở production (mục O2) và hoàn tất toàn bộ kiểm chứng tự động + kiểm thử live trên PostgreSQL 16 thật (xem thêm [12 – T-10 Issues and Fixes](12_T-10_Issues_and_Fixes.md)).
 
 ## 1. Phạm vi
 
@@ -158,7 +158,7 @@ Cập nhật 26/11/2026 (sau khi hạ `@nestjs/jwt` từ `^12.0.5` ESM-only xu�
 | Unit test (`npm test -- --maxWorkers=2`) | **Pass** (11/11 suites, 86/86 tests) |
 | Test e2e (`npm run test:e2e`) | **Pass** (1/1 suite, 22/22 tests) |
 | Build (`npm run build`) | **Pass** |
-| Thử với PostgreSQL thật và seed data | **Chưa chạy** (chờ bật Docker Desktop) |
+| Thử với PostgreSQL thật và seed data | **Pass** (đủ 7 kịch bản live: login, me, refresh rotation, reuse detection, logout, BANNED 403, rate limit 429) |
 | CI trên GitHub | **Chưa xác nhận.** CI chỉ chạy khi có PR hoặc push vào `develop`, `main` |
 
 Lần chạy lại trên bản clone `~/projects/it4409` ngày 25/11 cũng dừng vì lỗi `Wsl/Service/0x8007274c` ([doc 10](10_Phase1-3_Issues_and_Solutions.md), mục 5).
