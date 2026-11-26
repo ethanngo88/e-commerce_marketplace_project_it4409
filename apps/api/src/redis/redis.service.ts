@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { NodeEnv } from '../config/env.validation';
@@ -12,7 +17,7 @@ const REDIS_CONNECT_TIMEOUT_MS = 2_000;
  *   mọi thao tác cache tự bỏ qua (fail-open) để API vẫn phục vụ từ PostgreSQL.
  */
 @Injectable()
-export class RedisService implements OnModuleDestroy {
+export class RedisService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name);
   private readonly client: Redis | null;
 
@@ -39,6 +44,19 @@ export class RedisService implements OnModuleDestroy {
     });
 
     this.client = client;
+  }
+
+  async onModuleInit(): Promise<void> {
+    if (!this.client) {
+      return;
+    }
+    try {
+      await this.client.connect();
+    } catch (error) {
+      this.logger.warn(
+        `Redis initial connect failed (cache bypassed): ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   async getJson<T>(key: string): Promise<T | null> {

@@ -94,4 +94,21 @@ describe('RedisService', () => {
     await service.onModuleDestroy();
     expect(fakeClient.quit).toHaveBeenCalledTimes(1);
   });
+
+  it('should call connect on module init and fail open if initial connect fails', async () => {
+    const service = new RedisService(
+      createConfig({ NODE_ENV: 'test', REDIS_URL: undefined }),
+    );
+    const warnSpy = jest
+      .spyOn((service as any).logger, 'warn')
+      .mockImplementation(() => {});
+    const fakeClient = {
+      connect: jest.fn().mockRejectedValueOnce(new Error('ECONNREFUSED')),
+    };
+    (service as any).client = fakeClient;
+
+    await expect(service.onModuleInit()).resolves.toBeUndefined();
+    expect(fakeClient.connect).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
 });
