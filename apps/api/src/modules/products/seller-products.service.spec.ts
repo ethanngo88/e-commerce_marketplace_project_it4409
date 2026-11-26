@@ -356,5 +356,193 @@ describe('SellerProductsService (T-14)', () => {
         'marketplace/products/prod-1/1',
       );
     });
+
+    it('should reorder images when imageIds match existing images exactly and reject mismatches', async () => {
+      prisma.product.findFirst.mockResolvedValue({
+        id: 'prod-1',
+        status: ProductStatus.ACTIVE,
+      } as never);
+      prisma.productImage.findMany.mockResolvedValueOnce([
+        { id: 'img-1' },
+        { id: 'img-2' },
+      ] as never);
+
+      await expect(
+        service.reorderImages('store-1', 'prod-1', { imageIds: ['img-1'] }),
+      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', status: 400 });
+
+      prisma.productImage.findMany
+        .mockResolvedValueOnce([{ id: 'img-1' }, { id: 'img-2' }] as never)
+        .mockResolvedValueOnce([
+          { id: 'img-2', url: 'https://cdn/2.png', sortOrder: 0 },
+          { id: 'img-1', url: 'https://cdn/1.png', sortOrder: 1 },
+        ] as never);
+      prisma.productImage.update.mockResolvedValue({} as never);
+
+      const reordered = await service.reorderImages('store-1', 'prod-1', {
+        imageIds: ['img-2', 'img-1'],
+      });
+
+      expect(reordered[0].id).toBe('img-2');
+      expect(prisma.productImage.update).toHaveBeenNthCalledWith(1, {
+        where: { id: 'img-2' },
+        data: { sortOrder: 0 },
+      });
+    });
+
+    it('should rollback Cloudinary uploads if database insert fails', async () => {
+      prisma.product.findFirst.mockResolvedValue({
+        id: 'prod-1',
+        status: ProductStatus.DRAFT,
+      } as never);
+      prisma.productImage.findMany.mockResolvedValue([]);
+      cloudinary.uploadImage.mockResolvedValueOnce({
+        url: 'https://cdn/1.png',
+        publicId: 'pub-1',
+      });
+      prisma.productImage.create.mockRejectedValueOnce(
+        new Error('DB write failed'),
+      );
+      cloudinary.deleteImage.mockResolvedValue(undefined);
+
+      await expect(
+        service.uploadImages('store-1', 'prod-1', [makePngFile('1.png')]),
+      ).rejects.toThrow('DB write failed');
+      expect(cloudinary.deleteImage).toHaveBeenCalledWith('pub-1');
+    });
+  });
+
+  describe('list, getById, softDelete, addVariant, and deleteVariant', () => {
+    it('should list seller products paginated with status and q filter', async () => {
+      prisma.product.findMany.mockResolvedValue([
+        {
+          id: 'prod-1',
+          name: 'Áo thun',
+          slug: 'ao-thun',
+          status: ProductStatus.DRAFT,
+          minPrice: 150000,
+          ratingAvg: '4.20',
+          ratingCount: 3,
+          soldCount: 10,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          store: { name: 'Shop An', slug: 'shop-an' },
+          images: [{ url: 'https://cdn/1.png' }],
+        },
+      ] as never);
+      prisma.product.count.mockResolvedValue(1);
+
+      const res = await service.list('store-1', {
+        q: 'áo',
+        status: ProductStatus.DRAFT,
+        page: 1,
+        limit: 20,
+      });
+
+      expect(res.meta.total).toBe(1);
+      expect(res.data[0].ratingAvg).toBe(4.2);
+      expect(res.data[0].status).toBe(ProductStatus.DRAFT);
+    });
+
+    it('should get owned product detail and soft delete product', async () => {
+      prisma.product.findFirst.mockResolvedValueOnce(
+        productDetailRecord() as never,
+      );
+
+      const detail = await service.getById('store-1', 'prod-1');
+      expect(detail.id).toBe('prod-1');
+
+      prisma.product.findFirst.mockResolvedValueOnce({
+        id: 'prod-1',
+        status: ProductStatus.ACTIVE,
+      } as never);
+      prisma.product.update.mockResolvedValue({} as never);
+
+      await service.softDelete('store-1', 'prod-1');
+      expect(prisma.product.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'prod-1' },
+          data: { deletedAt: expect.any(Date) },
+        }),
+      );
+    });
+
+    it('should add a variant with inventory, recalculate minPrice, and reject duplicate SKU', async () => {
+      prisma.product.findFirst.mockResolvedValue({
+        id: 'prod-1',
+        status: ProductStatus.DRAFT,
+      } as never);
+      prisma.productVariant.count.mockResolvedValue(1);
+      prisma.productVariant.findUnique.mockResolvedValueOnce({
+        id: 'dup',
+      } as never);
+
+      await expect(
+        service.addVariant('store-1', 'prod-1', {
+          sku: 'EXISTING',
+          name: 'Dup',
+          price: 100000,
+          stock: 5,
+        }),
+      ).rejects.toMatchObject({ code: 'DUPLICATE_SKU', status: 409 });
+
+      prisma.productVariant.findUnique.mockResolvedValueOnce(null);
+      prisma.productVariant.create.mockResolvedValue({
+        id: 'var-3',
+        sku: 'NEW-SKU',
+        name: 'Xanh / S',
+        attributes: {},
+        price: 110000,
+        isActive: true,
+        inventory: { quantity: 7 },
+      } as never);
+      prisma.productVariant.aggregate.mockResolvedValue({
+        _min: { price: 110000 },
+      } as never);
+      prisma.product.update.mockResolvedValue({} as never);
+
+      const added = await service.addVariant('store-1', 'prod-1', {
+        sku: 'NEW-SKU',
+        name: 'Xanh / S',
+        price: 110000,
+        stock: 7,
+      });
+
+      expect(added.stock).toBe(7);
+      expect(prisma.product.update).toHaveBeenCalledWith({
+        where: { id: 'prod-1' },
+        data: { minPrice: 110000 },
+      });
+    });
+
+    it('should delete an unused non-last variant and recalculate minPrice', async () => {
+      prisma.product.findFirst.mockResolvedValue({
+        id: 'prod-1',
+        status: ProductStatus.ACTIVE,
+      } as never);
+      prisma.productVariant.findFirst.mockResolvedValue({
+        id: 'var-2',
+        isActive: true,
+        _count: { orderItems: 0 },
+      } as never);
+      prisma.productVariant.count
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(1);
+      prisma.productVariant.delete.mockResolvedValue({} as never);
+      prisma.productVariant.aggregate.mockResolvedValue({
+        _min: { price: 200000 },
+      } as never);
+      prisma.product.update.mockResolvedValue({} as never);
+
+      await service.deleteVariant('store-1', 'prod-1', 'var-2');
+
+      expect(prisma.productVariant.delete).toHaveBeenCalledWith({
+        where: { id: 'var-2' },
+      });
+      expect(prisma.product.update).toHaveBeenCalledWith({
+        where: { id: 'prod-1' },
+        data: { minPrice: 200000 },
+      });
+    });
   });
 });

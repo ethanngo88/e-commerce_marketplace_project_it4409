@@ -81,7 +81,23 @@ describe('CloudinaryService & image validation', () => {
     ).toThrow(expect.objectContaining({ code: 'INVALID_FILE', status: 400 }));
   });
 
-  it('should throw 503 SERVICE_UNAVAILABLE if Cloudinary credentials are missing on upload', async () => {
+  it('should reject missing/empty files, short buffers, and disallowed MIME types (e.g. SVG)', () => {
+    expect(detectImageTypeByMagicBytes(Buffer.from([0xff, 0xd8]))).toBeNull();
+    expect(() => validateImageFile(undefined)).toThrow(
+      expect.objectContaining({ code: 'INVALID_FILE', status: 400 }),
+    );
+    expect(() =>
+      validateImageFile(
+        makeFile({
+          originalname: 'payload.svg',
+          mimetype: 'image/svg+xml',
+          buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
+        }),
+      ),
+    ).toThrow(expect.objectContaining({ code: 'INVALID_FILE', status: 400 }));
+  });
+
+  it('should throw 503 SERVICE_UNAVAILABLE if Cloudinary credentials are missing on upload and no-op on delete', async () => {
     const config = { get: () => undefined } as unknown as ConfigService;
     const service = new CloudinaryService(config);
 
@@ -91,5 +107,8 @@ describe('CloudinaryService & image validation', () => {
       code: 'SERVICE_UNAVAILABLE',
       status: 503,
     });
+    await expect(
+      service.deleteImage('marketplace/stores/sample'),
+    ).resolves.toBeUndefined();
   });
 });
