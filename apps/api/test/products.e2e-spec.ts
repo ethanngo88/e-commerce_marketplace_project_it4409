@@ -99,6 +99,22 @@ describe('Public Products & Search API (e2e)', () => {
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
+  it.each([
+    ['minPrice', '/api/products?minPrice=3000000000'],
+    ['maxPrice', '/api/products?maxPrice=3000000000'],
+    ['page', '/api/products?page=100000000000000000000'],
+  ])(
+    'GET /api/products should return 400, not 500, when %s is too large for the database',
+    async (field, url) => {
+      const res = await request(app.getHttpServer()).get(url).expect(400);
+
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.details).toEqual([
+        { field, message: expect.stringContaining('tối đa') },
+      ]);
+    },
+  );
+
   it('GET /api/products should reject minPrice > maxPrice with 400 VALIDATION_ERROR', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/products?minPrice=500000&maxPrice=100000')

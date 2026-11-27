@@ -6,7 +6,7 @@ import { AppException, ErrorCode } from '../../common/errors/error-codes';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserProfileDto } from '../auth/dto/auth-response.dto';
-import { TokenService } from '../auth/token.service';
+import { IssuedRefreshToken, TokenService } from '../auth/token.service';
 import {
   AddressResponseDto,
   CreateAddressDto,
@@ -96,11 +96,18 @@ export class UsersService {
    * Đổi mật khẩu (doc 05 mục 4): kiểm tra mật khẩu hiện tại, lưu hash mới
    * và thu hồi mọi refresh token của các phiên khác trong cùng transaction.
    */
+  /**
+   * Đổi mật khẩu và thu hồi mọi refresh token của user, rồi cấp một refresh token mới
+   * cho phiên đang dùng (controller đặt lại cookie). Kết quả: phiên hiện tại vẫn đăng
+   * nhập, mọi phiên khác (ví dụ trên máy bị lộ mật khẩu) bị đăng xuất.
+   *
+   * Không dựa vào cookie của request: cookie refresh chỉ được gửi tới `/api/auth/*`,
+   * nên endpoint `/api/users/me/password` không bao giờ nhận được nó.
+   */
   async changePassword(
     userId: string,
     dto: ChangePasswordDto,
-    currentRefreshToken?: string,
-  ): Promise<void> {
+  ): Promise<IssuedRefreshToken> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, passwordHash: true },
@@ -122,12 +129,13 @@ export class UsersService {
     }
 
     const newHash = await bcrypt.hash(dto.newPassword, this.bcryptRounds);
-    await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: userId },
         data: { passwordHash: newHash },
       });
-      await this.tokens.revokeOtherForUser(userId, currentRefreshToken, tx);
+      await this.tokens.revokeAllForUser(userId, tx);
+      return this.tokens.issueRefreshToken(userId, tx);
     });
   }
 

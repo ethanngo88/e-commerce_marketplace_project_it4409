@@ -9,6 +9,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { IsOptionalNotNull } from '../../../common/validators/is-optional-not-null.decorator';
 
 export class CreateCategoryDto {
   @ApiProperty({ example: 'Áo khoác nam', minLength: 2, maxLength: 100 })
@@ -33,7 +34,7 @@ export class CreateCategoryDto {
     example: 0,
     minimum: 0,
   })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsInt({ message: 'Thứ tự hiển thị phải là số nguyên' })
   @Min(0, { message: 'Thứ tự hiển thị không được âm' })
   @Max(10000, { message: 'Thứ tự hiển thị tối đa là 10000' })

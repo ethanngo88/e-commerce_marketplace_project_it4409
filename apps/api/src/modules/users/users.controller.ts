@@ -9,19 +9,23 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  Req,
+  Res,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AppException, ErrorCode } from '../../common/errors/error-codes';
 import { UserProfileDto } from '../auth/dto/auth-response.dto';
-import { REFRESH_COOKIE_NAME } from '../auth/refresh-cookie';
+import {
+  REFRESH_COOKIE_NAME,
+  refreshCookieOptions,
+} from '../auth/refresh-cookie';
 import {
   AddressResponseDto,
   CreateAddressDto,
@@ -44,7 +48,14 @@ const addressIdPipe = new ParseUUIDPipe({
 @ApiBearerAuth()
 @Controller('users')
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  private readonly isProduction: boolean;
+
+  constructor(
+    private readonly users: UsersService,
+    config: ConfigService,
+  ) {
+    this.isProduction = config.get<string>('NODE_ENV') === 'production';
+  }
 
   @Get('me')
   @ApiOperation({ summary: 'Xem hồ sơ người dùng hiện tại' })
@@ -67,21 +78,23 @@ export class UsersController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Đổi mật khẩu và thu hồi mọi phiên đăng nhập khác',
+    description:
+      'Phiên hiện tại vẫn đăng nhập: response đặt lại cookie refreshToken mới.',
   })
   @ApiResponse({ status: 204 })
   @ApiResponse({ status: 400, description: 'WRONG_PASSWORD' })
-  changePassword(
+  async changePassword(
     @CurrentUser('id') userId: string,
     @Body() dto: ChangePasswordDto,
-    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
-    const cookies = req.cookies as Record<string, unknown> | undefined;
-    const currentCookie =
-      typeof cookies?.[REFRESH_COOKIE_NAME] === 'string' &&
-      cookies[REFRESH_COOKIE_NAME].length > 0
-        ? cookies[REFRESH_COOKIE_NAME]
-        : undefined;
-    return this.users.changePassword(userId, dto, currentCookie);
+    const refresh = await this.users.changePassword(userId, dto);
+    // Cookie có Path=/api/auth: đặt được từ response của endpoint khác đường dẫn.
+    res.cookie(
+      REFRESH_COOKIE_NAME,
+      refresh.token,
+      refreshCookieOptions(this.isProduction, refresh.expiresAt),
+    );
   }
 
   @Get('me/addresses')

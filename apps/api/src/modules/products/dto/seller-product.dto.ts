@@ -19,6 +19,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { ProductStatus } from '../../../generated/prisma/client';
+import { IsOptionalNotNull } from '../../../common/validators/is-optional-not-null.decorator';
+import { MAX_PAGE } from '../../../common/pagination/paginated';
 
 /** SKU: 1–50 ký tự gồm chữ, số, dấu gạch ngang (doc 05 mục 7.2). */
 export const SKU_REGEX = /^[A-Za-z0-9-]+$/;
@@ -63,7 +65,7 @@ export class CreateVariantDto {
     type: 'object',
     additionalProperties: true,
   })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsObject({ message: 'Thuộc tính biến thể phải là đối tượng JSON' })
   attributes?: Record<string, unknown>;
 
@@ -83,7 +85,7 @@ export class CreateVariantDto {
 export class UpdateVariantDto {
   @ApiPropertyOptional({ example: 'AT-DO-XL' })
   @Transform(trimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString({ message: 'SKU không hợp lệ' })
   @Length(1, 50, { message: 'SKU phải dài 1–50 ký tự' })
   @Matches(SKU_REGEX, {
@@ -93,25 +95,25 @@ export class UpdateVariantDto {
 
   @ApiPropertyOptional({ example: 'Đỏ / XL' })
   @Transform(trimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString({ message: 'Tên biến thể không hợp lệ' })
   @Length(1, 255, { message: 'Tên biến thể phải dài 1–255 ký tự' })
   name?: string;
 
   @ApiPropertyOptional({ type: 'object', additionalProperties: true })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsObject({ message: 'Thuộc tính biến thể phải là đối tượng JSON' })
   attributes?: Record<string, unknown>;
 
   @ApiPropertyOptional({ example: 180000, minimum: 1000, maximum: 500000000 })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsInt({ message: 'Giá biến thể phải là số nguyên (VND)' })
   @Min(1000, { message: 'Giá biến thể tối thiểu là 1.000đ' })
   @Max(500000000, { message: 'Giá biến thể tối đa là 500.000.000đ' })
   price?: number;
 
   @ApiPropertyOptional({ example: true })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsBoolean({ message: 'isActive phải là giá trị đúng/sai' })
   isActive?: boolean;
 }
@@ -153,7 +155,7 @@ export class CreateProductDto {
 export class UpdateProductDto {
   @ApiPropertyOptional({ example: 'Áo thun cotton nam mẫu mới' })
   @Transform(trimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString({ message: 'Tên sản phẩm không hợp lệ' })
   @Length(5, 200, { message: 'Tên sản phẩm phải dài 5–200 ký tự' })
   name?: string;
@@ -169,7 +171,7 @@ export class UpdateProductDto {
   description?: string | null;
 
   @ApiPropertyOptional({ example: '00000000-0000-4000-8000-000000000001' })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsUUID(undefined, { message: 'categoryId phải là UUID hợp lệ' })
   categoryId?: string;
 }
@@ -220,6 +222,7 @@ export class QuerySellerProductsDto {
   @IsOptional()
   @IsInt({ message: 'page phải là số nguyên' })
   @Min(1, { message: 'page tối thiểu là 1' })
+  @Max(MAX_PAGE, { message: `page tối đa là ${MAX_PAGE}` })
   page: number = 1;
 
   @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })

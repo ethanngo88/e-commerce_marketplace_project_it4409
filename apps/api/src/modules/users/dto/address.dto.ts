@@ -1,13 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import {
-  IsBoolean,
-  IsOptional,
-  IsString,
-  Length,
-  Matches,
-} from 'class-validator';
+import { IsBoolean, IsString, Length, Matches } from 'class-validator';
 import { VN_PHONE_REGEX } from './update-profile.dto';
+import { IsOptionalNotNull } from '../../../common/validators/is-optional-not-null.decorator';
 
 const trimString = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
@@ -52,7 +47,7 @@ export class CreateAddressDto {
   street!: string;
 
   @ApiPropertyOptional({ example: false })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsBoolean({ message: 'isDefault phải là giá trị đúng/sai' })
   isDefault?: boolean;
 }
@@ -60,14 +55,14 @@ export class CreateAddressDto {
 export class UpdateAddressDto {
   @ApiPropertyOptional({ example: 'Trần Thị Bình' })
   @Transform(trimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString({ message: 'Tên người nhận không hợp lệ' })
   @Length(2, 100, { message: 'Tên người nhận phải dài 2–100 ký tự' })
   recipientName?: string;
 
   @ApiPropertyOptional({ example: '0901234567' })
   @Transform(trimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString({ message: 'Số điện thoại không hợp lệ' })
   @Matches(VN_PHONE_REGEX, {
     message: 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0',
@@ -76,34 +71,34 @@ export class UpdateAddressDto {
 
   @ApiPropertyOptional({ example: 'Hà Nội' })
   @Transform(trimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString({ message: 'Tỉnh/Thành phố không hợp lệ' })
   @Length(1, 100, { message: 'Tỉnh/Thành phố phải dài 1–100 ký tự' })
   province?: string;
 
   @ApiPropertyOptional({ example: 'Quận Hai Bà Trưng' })
   @Transform(trimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString({ message: 'Quận/Huyện không hợp lệ' })
   @Length(1, 100, { message: 'Quận/Huyện phải dài 1–100 ký tự' })
   district?: string;
 
   @ApiPropertyOptional({ example: 'Phường Bách Khoa' })
   @Transform(trimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString({ message: 'Phường/Xã không hợp lệ' })
   @Length(1, 100, { message: 'Phường/Xã phải dài 1–100 ký tự' })
   ward?: string;
 
   @ApiPropertyOptional({ example: 'Số 12, ngõ 34 Tạ Quang Bửu' })
   @Transform(trimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString({ message: 'Địa chỉ cụ thể không hợp lệ' })
   @Length(1, 255, { message: 'Địa chỉ cụ thể phải dài 1–255 ký tự' })
   street?: string;
 
   @ApiPropertyOptional({ example: true })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsBoolean({ message: 'isDefault phải là giá trị đúng/sai' })
   isDefault?: boolean;
 }

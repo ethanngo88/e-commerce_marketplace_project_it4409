@@ -35,7 +35,11 @@ describe('UsersService (T-11)', () => {
       (fn: (tx: PrismaService) => unknown) => fn(prisma),
     );
     tokens = mockDeep<TokenService>();
-    tokens.revokeOtherForUser.mockResolvedValue(undefined);
+    tokens.revokeAllForUser.mockResolvedValue(undefined);
+    tokens.issueRefreshToken.mockResolvedValue({
+      token: 'new-refresh-token',
+      expiresAt: new Date(),
+    });
     const config = {
       get: (key: string, defaultValue?: unknown) =>
         key === 'BCRYPT_ROUNDS' ? 4 : defaultValue,
@@ -94,30 +98,32 @@ describe('UsersService (T-11)', () => {
         }),
       ).rejects.toMatchObject({ code: 'WRONG_PASSWORD', status: 400 });
       expect(prisma.user.update).not.toHaveBeenCalled();
-      expect(tokens.revokeOtherForUser).not.toHaveBeenCalled();
+      expect(tokens.revokeAllForUser).not.toHaveBeenCalled();
+      expect(tokens.issueRefreshToken).not.toHaveBeenCalled();
     });
 
-    it('should hash the new password and revoke other refresh tokens', async () => {
+    it('should hash the new password, revoke every session and issue a new refresh token for the current one', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 'user-1',
         passwordHash: oldHash,
       } as never);
       prisma.user.update.mockResolvedValue({ id: 'user-1' } as never);
 
-      await service.changePassword(
-        'user-1',
-        { currentPassword: 'OldPass123', newPassword: 'NewPass456' },
-        'current-cookie',
-      );
+      const refresh = await service.changePassword('user-1', {
+        currentPassword: 'OldPass123',
+        newPassword: 'NewPass456',
+      });
 
       const savedHash = prisma.user.update.mock.calls[0][0].data
         .passwordHash as string;
       await expect(bcrypt.compare('NewPass456', savedHash)).resolves.toBe(true);
-      expect(tokens.revokeOtherForUser).toHaveBeenCalledWith(
-        'user-1',
-        'current-cookie',
-        prisma,
+      expect(tokens.revokeAllForUser).toHaveBeenCalledWith('user-1', prisma);
+      expect(tokens.issueRefreshToken).toHaveBeenCalledWith('user-1', prisma);
+      // Thu hồi trước, cấp mới sau: token mới không bị thu hồi theo.
+      expect(tokens.revokeAllForUser.mock.invocationCallOrder[0]).toBeLessThan(
+        tokens.issueRefreshToken.mock.invocationCallOrder[0],
       );
+      expect(refresh.token).toBe('new-refresh-token');
     });
   });
 

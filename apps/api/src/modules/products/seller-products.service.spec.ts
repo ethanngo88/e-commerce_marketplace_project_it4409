@@ -335,11 +335,17 @@ describe('SellerProductsService (T-14)', () => {
       ]);
     });
 
+    const mockLockedStatus = (status: ProductStatus) =>
+      (prisma.$queryRaw as unknown as jest.Mock).mockResolvedValue([
+        { status },
+      ]);
+
     it('should delete image from DB and trigger best-effort Cloudinary deletion', async () => {
       prisma.product.findFirst.mockResolvedValue({
         id: 'prod-1',
         status: ProductStatus.DRAFT,
       } as never);
+      mockLockedStatus(ProductStatus.DRAFT);
       prisma.productImage.findFirst.mockResolvedValue({
         id: 'img-1',
         publicId: 'marketplace/products/prod-1/1',
@@ -349,12 +355,54 @@ describe('SellerProductsService (T-14)', () => {
 
       await service.deleteImage('store-1', 'prod-1', 'img-1');
 
+      // Khóa dòng sản phẩm trước khi đếm và xóa.
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
       expect(prisma.productImage.delete).toHaveBeenCalledWith({
         where: { id: 'img-1' },
       });
       expect(cloudinary.deleteImage).toHaveBeenCalledWith(
         'marketplace/products/prod-1/1',
       );
+    });
+
+    it('should refuse to delete the last image of an ACTIVE product', async () => {
+      prisma.product.findFirst.mockResolvedValue({
+        id: 'prod-1',
+        status: ProductStatus.ACTIVE,
+      } as never);
+      mockLockedStatus(ProductStatus.ACTIVE);
+      prisma.productImage.findFirst.mockResolvedValue({
+        id: 'img-1',
+        publicId: 'marketplace/products/prod-1/1',
+      } as never);
+      prisma.productImage.count.mockResolvedValue(1);
+
+      await expect(
+        service.deleteImage('store-1', 'prod-1', 'img-1'),
+      ).rejects.toMatchObject({ code: 'PRODUCT_NOT_PUBLISHABLE', status: 400 });
+      expect(prisma.productImage.delete).not.toHaveBeenCalled();
+      expect(cloudinary.deleteImage).not.toHaveBeenCalled();
+    });
+
+    it('should delete an image of an ACTIVE product while another image remains', async () => {
+      prisma.product.findFirst.mockResolvedValue({
+        id: 'prod-1',
+        status: ProductStatus.ACTIVE,
+      } as never);
+      mockLockedStatus(ProductStatus.ACTIVE);
+      prisma.productImage.findFirst.mockResolvedValue({
+        id: 'img-1',
+        publicId: 'marketplace/products/prod-1/1',
+      } as never);
+      prisma.productImage.count.mockResolvedValue(2);
+      prisma.productImage.delete.mockResolvedValue({} as never);
+      cloudinary.deleteImage.mockResolvedValue(undefined);
+
+      await service.deleteImage('store-1', 'prod-1', 'img-1');
+
+      expect(prisma.productImage.delete).toHaveBeenCalledWith({
+        where: { id: 'img-1' },
+      });
     });
 
     it('should reorder images when imageIds match existing images exactly and reject mismatches', async () => {

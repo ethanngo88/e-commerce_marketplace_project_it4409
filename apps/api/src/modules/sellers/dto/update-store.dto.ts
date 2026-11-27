@@ -11,6 +11,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { IsOptionalNotNull } from '../../../common/validators/is-optional-not-null.decorator';
 
 const trimString = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
@@ -18,7 +19,7 @@ const trimString = ({ value }: { value: unknown }) =>
 export class UpdateStoreDto {
   @ApiPropertyOptional({ example: 'Minh An Official' })
   @Transform(trimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString({ message: 'Tên cửa hàng không hợp lệ' })
   @Length(2, 255, { message: 'Tên cửa hàng phải dài 2–255 ký tự' })
   name?: string;

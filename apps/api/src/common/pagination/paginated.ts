@@ -1,3 +1,9 @@
+/**
+ * Số trang tối đa trong query `page`. Thiếu giới hạn này, `page` quá lớn làm
+ * OFFSET vượt kiểu số của PostgreSQL và API trả 500 thay vì 400.
+ */
+export const MAX_PAGE = 10_000;
+
 export interface PaginationMeta {
   page: number;
   limit: number;

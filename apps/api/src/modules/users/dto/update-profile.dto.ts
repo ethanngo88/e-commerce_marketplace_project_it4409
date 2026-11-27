@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsOptionalNotNull } from '../../../common/validators/is-optional-not-null.decorator';
 
 /** Số điện thoại Việt Nam: 10 chữ số, bắt đầu bằng 0 (doc 05 mục 4). */
 export const VN_PHONE_REGEX = /^0\d{9}$/;
@@ -15,7 +16,7 @@ export class UpdateProfileDto {
     maxLength: 100,
   })
   @Transform(trimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString({ message: 'Họ tên không hợp lệ' })
   @Length(2, 100, { message: 'Họ tên phải dài 2–100 ký tự' })
   fullName?: string;

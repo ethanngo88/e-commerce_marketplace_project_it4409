@@ -11,6 +11,13 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { MAX_PAGE } from '../../../common/pagination/paginated';
+
+/**
+ * Giới hạn trên cho minPrice/maxPrice: tổng một đơn dưới 2 tỷ đồng (doc 04 mục 1).
+ * Giá trị lớn hơn kiểu INT của PostgreSQL làm truy vấn lỗi và API trả 500.
+ */
+const MAX_PRICE_FILTER = 2_000_000_000;
 
 export enum ProductSort {
   NEWEST = 'newest',
@@ -118,6 +125,7 @@ export class QueryProductsDto {
   @IsOptional()
   @IsInt({ message: 'minPrice phải là số nguyên' })
   @Min(0, { message: 'minPrice không được âm' })
+  @Max(MAX_PRICE_FILTER, { message: 'minPrice tối đa là 2.000.000.000' })
   minPrice?: number;
 
   @ApiPropertyOptional({
@@ -129,6 +137,7 @@ export class QueryProductsDto {
   @IsOptional()
   @IsInt({ message: 'maxPrice phải là số nguyên' })
   @Min(0, { message: 'maxPrice không được âm' })
+  @Max(MAX_PRICE_FILTER, { message: 'maxPrice tối đa là 2.000.000.000' })
   maxPrice?: number;
 
   @ApiPropertyOptional({
@@ -180,6 +189,7 @@ export class QueryProductsDto {
   @IsOptional()
   @IsInt({ message: 'page phải là số nguyên' })
   @Min(1, { message: 'page tối thiểu là 1' })
+  @Max(MAX_PAGE, { message: `page tối đa là ${MAX_PAGE}` })
   page: number = 1;
 
   @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })

@@ -1,5 +1,6 @@
 import { JwtService } from '@nestjs/jwt';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import * as bcrypt from 'bcrypt';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
@@ -31,7 +32,7 @@ describe('Users (T-11), Sellers (T-12), and Seller Products (T-14) API (e2e)', (
       updateMany: jest.fn(),
       delete: jest.fn(),
     },
-    refreshToken: { updateMany: jest.fn() },
+    refreshToken: { updateMany: jest.fn(), create: jest.fn() },
     seller: {
       findUnique: jest.fn(),
       create: jest.fn(),
@@ -122,6 +123,71 @@ describe('Users (T-11), Sellers (T-12), and Seller Products (T-14) API (e2e)', (
         .expect(400);
 
       expect(badRes.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('PATCH /api/users/me should return 400, not 500, when a required field is null', async () => {
+      const token = await signToken('user-1', [Role.CUSTOMER]);
+
+      const res = await request(app.getHttpServer())
+        .patch('/api/users/me')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ fullName: null })
+        .expect(400);
+
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.details).toEqual([
+        { field: 'fullName', message: expect.any(String) },
+      ]);
+      expect(prismaMock.user.update).not.toHaveBeenCalled();
+    });
+
+    it('PATCH /api/users/me should still accept phone: null to clear the phone number', async () => {
+      const token = await signToken('user-1', [Role.CUSTOMER]);
+      prismaMock.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prismaMock.user.update.mockResolvedValue({
+        id: 'user-1',
+        email: 'user-1@example.com',
+        fullName: 'Nguyễn Văn An',
+        phone: null,
+        avatarUrl: null,
+        userRoles: [{ role: { name: 'CUSTOMER' } }],
+        seller: null,
+      });
+
+      const res = await request(app.getHttpServer())
+        .patch('/api/users/me')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ phone: null })
+        .expect(200);
+
+      expect(res.body.data.phone).toBeNull();
+    });
+
+    it('PATCH /api/users/me/password should keep the current session by setting a new refresh cookie', async () => {
+      const token = await signToken('user-1', [Role.CUSTOMER]);
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        passwordHash: bcrypt.hashSync('OldPass123', 4),
+      });
+      prismaMock.user.update.mockResolvedValue({ id: 'user-1' });
+      prismaMock.refreshToken.updateMany.mockResolvedValue({ count: 2 });
+      prismaMock.refreshToken.create.mockResolvedValue({});
+
+      const res = await request(app.getHttpServer())
+        .patch('/api/users/me/password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ currentPassword: 'OldPass123', newPassword: 'NewPass456' })
+        .expect(204);
+
+      // Mọi refresh token cũ bị thu hồi, rồi phiên hiện tại nhận token mới qua cookie.
+      expect(prismaMock.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1', revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(prismaMock.refreshToken.create).toHaveBeenCalledTimes(1);
+      expect(String(res.headers['set-cookie'])).toMatch(
+        /refreshToken=[^;]+;.*Path=\/api\/auth;.*HttpOnly/,
+      );
     });
 
     it('PATCH /api/users/me/password should reject >72 UTF-8 bytes Vietnamese password', async () => {

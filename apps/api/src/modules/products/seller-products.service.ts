@@ -606,19 +606,43 @@ export class SellerProductsService {
     const owned = await this.findOwnedProduct(storeId, productId);
     assertNotBanned(owned.status);
 
-    const image = await this.prisma.productImage.findFirst({
-      where: { id: imageId, productId },
-      select: { id: true, publicId: true },
-    });
-    if (!image) {
-      throw new AppException(
-        ErrorCode.IMAGE_NOT_FOUND,
-        'Không tìm thấy ảnh sản phẩm',
-        HttpStatus.NOT_FOUND,
-      );
-    }
+    const image = await this.prisma.$transaction(async (tx) => {
+      // Khóa dòng sản phẩm để các lần xóa ảnh của cùng sản phẩm chạy lần lượt.
+      // Nếu không, hai request cùng thấy "còn 2 ảnh" và cùng xóa, sản phẩm ACTIVE hết ảnh.
+      const [product] = await tx.$queryRaw<{ status: ProductStatus }[]>`
+        SELECT status FROM products WHERE id = ${productId}::uuid FOR UPDATE`;
 
-    await this.prisma.productImage.delete({ where: { id: imageId } });
+      const target = await tx.productImage.findFirst({
+        where: { id: imageId, productId },
+        select: { id: true, publicId: true },
+      });
+      if (!target) {
+        throw new AppException(
+          ErrorCode.IMAGE_NOT_FOUND,
+          'Không tìm thấy ảnh sản phẩm',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Sản phẩm đang bán phải có ít nhất 1 ảnh (doc 03 mục 6.5).
+      if (product?.status === ProductStatus.ACTIVE) {
+        const imageCount = await tx.productImage.count({
+          where: { productId },
+        });
+        if (imageCount <= 1) {
+          throw new AppException(
+            ErrorCode.PRODUCT_NOT_PUBLISHABLE,
+            'Sản phẩm đang bán phải còn ít nhất một ảnh. Hãy thêm ảnh khác hoặc ẩn sản phẩm trước khi xóa ảnh này.',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
+
+      await tx.productImage.delete({ where: { id: imageId } });
+      return target;
+    });
+
+    // Xóa trên Cloudinary sau khi database đã xóa xong, để lỗi database không làm mất ảnh.
     await this.cloudinary.deleteImage(image.publicId);
   }
 

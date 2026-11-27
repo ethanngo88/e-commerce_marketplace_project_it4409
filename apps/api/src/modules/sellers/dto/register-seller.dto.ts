@@ -8,6 +8,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { VN_PHONE_REGEX } from '../../users/dto/update-profile.dto';
+import { IsOptionalNotNull } from '../../../common/validators/is-optional-not-null.decorator';
 
 const trimString = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
@@ -57,14 +58,14 @@ export class RegisterSellerDto {
 export class UpdateSellerProfileDto {
   @ApiPropertyOptional({ example: 'Công ty TNHH Minh An' })
   @Transform(trimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString({ message: 'Tên kinh doanh không hợp lệ' })
   @Length(2, 255, { message: 'Tên kinh doanh phải dài 2–255 ký tự' })
   businessName?: string;
 
   @ApiPropertyOptional({ example: '0901234567' })
   @Transform(trimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString({ message: 'Số điện thoại không hợp lệ' })
   @Matches(VN_PHONE_REGEX, {
     message: 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0',
@@ -83,7 +84,7 @@ export class UpdateSellerProfileDto {
 
   @ApiPropertyOptional({ example: 'Minh An Store' })
   @Transform(trimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString({ message: 'Tên cửa hàng không hợp lệ' })
   @Length(2, 255, { message: 'Tên cửa hàng phải dài 2–255 ký tự' })
   storeName?: string;

@@ -55,7 +55,7 @@ Danh sách có phân trang:
 }
 ```
 
-Tham số phân trang chung: `page` (mặc định 1), `limit` (mặc định 20, tối đa 100).
+Tham số phân trang chung: `page` (mặc định 1, tối đa 10.000), `limit` (mặc định 20, tối đa 100).
 
 ### 1.5 Response lỗi
 
@@ -176,7 +176,7 @@ Các quy tắc khác:
 |--------|-----|----------|------|--------------|------------|-----------|
 | GET | `/api/users/me` | Xem hồ sơ | User | – | 200 `user` | – |
 | PATCH | `/api/users/me` | Sửa hồ sơ | User | `fullName?`, `phone?` | 200 `user` | – |
-| PATCH | `/api/users/me/password` | Đổi mật khẩu | User | `currentPassword`, `newPassword` | 204; thu hồi mọi refresh token khác | 400 `WRONG_PASSWORD` |
+| PATCH | `/api/users/me/password` | Đổi mật khẩu | User | `currentPassword`, `newPassword` | 204; thu hồi mọi phiên khác, phiên hiện tại nhận cookie `refreshToken` mới | 400 `WRONG_PASSWORD` |
 | GET | `/api/users/me/addresses` | Danh sách địa chỉ | User | – | 200 `Address[]` | – |
 | POST | `/api/users/me/addresses` | Thêm địa chỉ | User | `recipientName`, `phone`, `province`, `district`, `ward`, `street`, `isDefault?` | 201 `Address` | 400 `ADDRESS_LIMIT_REACHED` |
 | PATCH | `/api/users/me/addresses/:id` | Sửa địa chỉ | User | Các field như trên, đều tùy chọn | 200 `Address` | 404 `ADDRESS_NOT_FOUND` |
@@ -241,7 +241,7 @@ Query của `GET /api/products`:
 | `q` | string, ≤ 100 ký tự | Từ khóa tìm trên tên, không phân biệt hoa thường và dấu |
 | `categorySlug` | string | Lọc theo danh mục, bao gồm danh mục con |
 | `storeSlug` | string | Lọc theo store |
-| `minPrice`, `maxPrice` | int ≥ 0 | Khoảng giá, so với `minPrice` của sản phẩm |
+| `minPrice`, `maxPrice` | int, 0–2.000.000.000 | Khoảng giá, so với `minPrice` của sản phẩm |
 | `minRating` | 1–5 | Rating trung bình tối thiểu |
 | `inStock` | boolean | Chỉ lấy sản phẩm còn hàng |
 | `sort` | enum | `newest` (mặc định), `price_asc`, `price_desc`, `best_selling`, `rating` |
@@ -287,7 +287,7 @@ Query của `GET /api/products`:
 | DELETE | `/api/seller/products/:id/variants/:variantId` | Xóa variant chưa từng được bán | Seller | – | 204 | 409 `VARIANT_HAS_ORDERS`; 400 `LAST_ACTIVE_VARIANT` |
 | POST | `/api/seller/products/:id/images` | Upload ảnh | Seller | `multipart/form-data`, field `files` (tối đa 8 ảnh/sản phẩm) | 201 `Image[]` | 400 `INVALID_FILE`, `IMAGE_LIMIT_REACHED` |
 | PATCH | `/api/seller/products/:id/images/order` | Sắp xếp ảnh; ảnh đầu là ảnh đại diện | Seller | `imageIds[]` | 200 `Image[]` | 400 `VALIDATION_ERROR` |
-| DELETE | `/api/seller/products/:id/images/:imageId` | Xóa ảnh | Seller | – | 204 | 404 `IMAGE_NOT_FOUND` |
+| DELETE | `/api/seller/products/:id/images/:imageId` | Xóa ảnh | Seller | – | 204 | 404 `IMAGE_NOT_FOUND`; 400 `PRODUCT_NOT_PUBLISHABLE` khi xóa ảnh cuối của sản phẩm ACTIVE |
 
 Validation: `name` 5–200 ký tự; `description` ≤ 10.000 ký tự; `price` nguyên, 1.000–500.000.000; `stock` nguyên, 0–1.000.000; `sku` 1–50 ký tự gồm chữ, số, gạch ngang; mỗi sản phẩm tối đa 30 variant; ảnh JPEG/PNG/WebP, ≤ 5MB.
 
